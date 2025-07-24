@@ -112,7 +112,7 @@ Widget build(BuildContext context) {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildMainKPISection(),
-
+                _buildTopClientsSection(),
                
 
                 _buildStatisticsSection(currentUserRole: 'ADMIN'),
@@ -142,6 +142,38 @@ Positioned(
   );
 }
 
+Widget _buildTopClientsSection() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "🏆 Top 10 Clients par nombre de commandes",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        FutureBuilder(
+          future: Future.wait([_commandesFuture, _clientsFuture]),
+          builder: (context, AsyncSnapshot<List<dynamic>> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return _buildLoadingCard('Chargement du top clients...');
+            } else if (snapshot.hasError) {
+              return _buildErrorCard('Erreur chargement des données', _refreshData);
+            } else if (!snapshot.hasData || snapshot.data![0].isEmpty) {
+              return _buildEmptyCard('Aucune donnée trouvée');
+            }
+
+            final List<CommandeDTO> commandes = snapshot.data![0];
+            final List<Client> clients = snapshot.data![1];
+
+            return _buildCommandesParClientChart(commandes, clients);
+          },
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildMainKPISection() {
     return FutureBuilder(

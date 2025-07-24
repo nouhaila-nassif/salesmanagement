@@ -5,6 +5,7 @@ import '../services/commande_service.dart';
 import '../services/produit_service.dart';
 import '../services/client_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:string_similarity/string_similarity.dart';
 
 import '../services/promotion_service.dart';
 import '../services/route_service.dart';
@@ -23,7 +24,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
 
-  final String _apiKey = "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";
+  final String _apiKey = "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";
 
   @override
   void initState() {
@@ -378,236 +379,225 @@ Widget _buildMessageBubble(_ChatMessage msg, Color primaryColor) {
     });
   }
 
-  void _handleUserMessage(String message) async {
-    if (message.trim().isEmpty || _isLoading) return;
+/// ✅ Ta fonction `_handleUserMessage` avec la correction intégrée
+void _handleUserMessage(String message) async {
+  if (message.trim().isEmpty || _isLoading) return;
+
+  setState(() {
+    _messages.add(_ChatMessage(
+      sender: "Vous",
+      message: message.trim(),
+      timestamp: DateTime.now(),
+    ));
+    _isLoading = true;
+  });
+
+  _scrollToBottom();
+
+  try {
+    // ✅ Correction automatique du message utilisateur
+    final correctedMessage = pretraiterMessage(message);
+
+    // Récupération des données (inchangé)
+    final produits = await ProduitService.getAllProduits();
+    final clients = await ClientService.getAllClients();
+    final promotions = await PromotionService.getAllPromotions();
+    final routes = await RouteService.getAllRoutes();
+    final commandes = await CommandeService.getCommandes();
+    final utilisateurs = await UtilisateurService.getAllUtilisateurs();
+
+    // Formatage des données (inchangé)
+    final infosProduits = produits.map((p) {
+      return "ID: ${p.id} | ${p.nom} | Catégorie: ${p.categorieNom} | Description: ${p.description ?? "Pas de description"} | Prix: ${p.prixUnitaire} DH | Stock disponible";
+    }).toList();
+
+    final infosClients = clients.map((c) {
+      return "ID: ${c.id} | ${c.nom} | Type: ${c.type} | Adresse: ${c.adresse ?? "Non spécifiée"} | Téléphone: ${c.telephone ?? "Non spécifié"} | Email: ${c.email ?? "Email non spécifié"}";
+    }).toList();
+
+    final infosPromotions = promotions.map((promo) {
+      return """ID: ${promo.id} | ${promo.nom} (${promo.type}) | Réduction: ${promo.tauxReduction * 100}% | Période: ${promo.dateDebut.toIso8601String().split('T')[0]} → ${promo.dateFin.toIso8601String().split('T')[0]} | Condition: ${promo.produitConditionNom ?? "Aucune"} (${promo.quantiteCondition ?? "N/A"}) | Offre: ${promo.produitOffertNom ?? "Aucune"} (${promo.quantiteOfferte ?? "N/A"})""";
+    }).toList();
+
+    final infosRoutes = routes.map((r) {
+      final vendeurs = r.vendeurs.map((v) => v.nomUtilisateur).join(", ");
+      final clientsRoute = r.clients.map((c) => c.nom).join(", ");
+      return "ID: ${r.id} | ${r.nom} | Vendeurs: ${vendeurs.isNotEmpty ? vendeurs : "Aucun"} | Clients: ${clientsRoute.isNotEmpty ? clientsRoute : "Aucun"}";
+    }).toList();
+
+    final infosCommandes = commandes.map((cmd) {
+      final lignesDescription = cmd.lignes.map((ligne) {
+        return "  - ${ligne.produit.nom} × ${ligne.quantite} = ${ligne.produit.prixUnitaire * ligne.quantite} DH${ligne.produitOffert ? " (OFFERT)" : ""}";
+      }).join("\n");
+
+      return """ID: ${cmd.id} | Client: ${cmd.clientNom} | Créée: ${cmd.dateCreation} | Livraison: ${cmd.dateLivraison} | Total: ${cmd.montantTotal} DH | Avant remise: ${cmd.montantTotalAvantRemise} DH | Réduction: ${cmd.montantReduction} DH | Statut: ${cmd.statut} | Promotions: ${cmd.promotionsAppliquees.map((p) => p.nom).join(", ")}
+Produits:
+$lignesDescription""";
+    }).toList();
+
+    final infosUtilisateurs = utilisateurs.map((u) {
+      return "ID: ${u.id} | ${u.nomUtilisateur} | Rôle: ${u.role} | Téléphone: ${u.telephone ?? "Non spécifié"} | Email: ${u.email ?? "Non spécifié"} | Superviseur: ${u.superviseurNom ?? "Aucun"}";
+    }).toList();
+
+    // ✅ Envoi à l'IA avec message corrigé
+    final botResponse = await _sendToIA(
+      correctedMessage, // ⬅️ on utilise le message corrigé
+      infosProduits,
+      infosClients,
+      infosCommandes,
+      infosRoutes,
+      infosPromotions,
+      infosUtilisateurs,
+    );
 
     setState(() {
       _messages.add(_ChatMessage(
-        sender: "Vous",
-        message: message.trim(),
+        sender: "Bot",
+        message: botResponse,
         timestamp: DateTime.now(),
       ));
-      _isLoading = true;
+      _isLoading = false;
     });
-
-    _scrollToBottom();
-
-    try {
-      // Récupération des données
-      final produits = await ProduitService.getAllProduits();
-      final clients = await ClientService.getAllClients();
-      final promotions = await PromotionService.getAllPromotions();
-      final routes = await RouteService.getAllRoutes();
-      final commandes = await CommandeService.getCommandes();
-      final utilisateurs = await UtilisateurService.getAllUtilisateurs();
-
-      // Formatage des données
-      final infosProduits = produits.map((p) {
-        return "ID: ${p.id} | ${p.nom} | Catégorie: ${p.categorieNom} | Description: ${p.description ?? "Pas de description"} | Prix: ${p.prixUnitaire} DH | Stock disponible";
-      }).toList();
-
-      final infosClients = clients.map((c) {
-        return "ID: ${c.id} | ${c.nom} | Type: ${c.type} | Adresse: ${c.adresse ?? "Non spécifiée"} | Téléphone: ${c.telephone ?? "Non spécifié"} | Email: ${c.email ?? "Email non spécifié"}";
-      }).toList();
-
-      final infosPromotions = promotions.map((promo) {
-        return """ID: ${promo.id} | ${promo.nom} (${promo.type}) | Réduction: ${promo.tauxReduction * 100}% | Période: ${promo.dateDebut.toIso8601String().split('T')[0]} → ${promo.dateFin.toIso8601String().split('T')[0]} | Condition: ${promo.produitConditionNom ?? "Aucune"} (${promo.quantiteCondition ?? "N/A"}) | Offre: ${promo.produitOffertNom ?? "Aucune"} (${promo.quantiteOfferte ?? "N/A"})""";
-      }).toList();
-
-      final infosRoutes = routes.map((r) {
-        final vendeurs = r.vendeurs.map((v) => v.nomUtilisateur).join(", ");
-        final clientsRoute = r.clients.map((c) => c.nom).join(", ");
-        return "ID: ${r.id} | ${r.nom} | Vendeurs: ${vendeurs.isNotEmpty ? vendeurs : "Aucun"} | Clients: ${clientsRoute.isNotEmpty ? clientsRoute : "Aucun"}";
-      }).toList();
-
-      final infosCommandes = commandes.map((cmd) {
-        final lignesDescription = cmd.lignes.map((ligne) {
-          return "  - ${ligne.produit.nom} × ${ligne.quantite} = ${ligne.produit.prixUnitaire * ligne.quantite} DH${ligne.produitOffert ? " (OFFERT)" : ""}";
-        }).join("\n");
-
-        return """ID: ${cmd.id} | Client: ${cmd.clientNom} | Créée: ${cmd.dateCreation} | Livraison: ${cmd.dateLivraison} | Total: ${cmd.montantTotal} DH | Avant remise: ${cmd.montantTotalAvantRemise} DH | Réduction: ${cmd.montantReduction} DH | Statut: ${cmd.statut} | Promotions: ${cmd.promotionsAppliquees.map((p) => p.nom).join(", ")}
-Produits:
-$lignesDescription""";
-      }).toList();
-
-      final infosUtilisateurs = utilisateurs.map((u) {
-        return "ID: ${u.id} | ${u.nomUtilisateur} | Rôle: ${u.role} | Téléphone: ${u.telephone ?? "Non spécifié"} | Email: ${u.email ?? "Non spécifié"} | Superviseur: ${u.superviseurNom ?? "Aucun"}";
-      }).toList();
-
-      // Envoi à l'IA
-      final botResponse = await _sendToIA(
-        message,
-        infosProduits,
-        infosClients,
-        infosCommandes,
-        infosRoutes,
-        infosPromotions,
-        infosUtilisateurs,
-      );
-
-      setState(() {
-        _messages.add(_ChatMessage(
-          sender: "Bot",
-          message: botResponse,
-          timestamp: DateTime.now(),
-        ));
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _messages.add(_ChatMessage(
-          sender: "Bot",
-          message: "❌ **Erreur lors de la récupération des données**\n\n```\n$e\n```",
-          timestamp: DateTime.now(),
-        ));
-        _isLoading = false;
-      });
-    }
-
-    _controller.clear();
-    _scrollToBottom();
+  } catch (e) {
+    setState(() {
+      _messages.add(_ChatMessage(
+        sender: "Bot",
+        message: "❌ **Erreur lors de la récupération des données**\n\n```\n$e\n```",
+        timestamp: DateTime.now(),
+      ));
+      _isLoading = false;
+    });
   }
 
-  Future<String> _sendToIA(
-    String userMessage,
-    List<String> produits,
-    List<String> clients,
-    List<String> commandes,
-    List<String> routes,
-    List<String> promotions,
-    List<String> utilisateurs,
-  ) async {
-    if (_apiKey.isEmpty) {
-      return "❌ **Configuration manquante**\n\nClé API non définie.";
-    }
+  _controller.clear();
+  _scrollToBottom();
+}
 
-    // Analyse du message pour détecter le type de question
-    final messageAnalysis = _analyzeMessage(userMessage);
-    
-    final systemPrompt = """Tu es un assistant commercial expert qui répond **exclusivement en Markdown structuré**.
+// Dictionnaire d'auto-formation (mémorise les corrections fréquentes)
+final Map<String, String> _autoLearnCorrections = {};
+
+Future<String> _sendToIA(
+  String userMessage,
+  List<String> produits,
+  List<String> clients,
+  List<String> commandes,
+  List<String> routes,
+  List<String> promotions,
+  List<String> utilisateurs,
+) async {
+  if (_apiKey.isEmpty) {
+    return "❌ **Configuration manquante**\n\nClé API non définie.";
+  }
+
+  /// 1. Correction automatique AVANT d'envoyer à l'IA
+  final correctedMessage = _autoCorrectMessage(userMessage, produits, clients, commandes);
+
+  /// 2. Analyse du message (avec correction)
+  final messageAnalysis = _analyzeMessage(correctedMessage);
+
+  /// 3. Prompt avec règles strictes et mention correction
+  final systemPrompt = """Tu es un assistant commercial expert qui répond **exclusivement en Markdown structuré**.
 
 ## 📊 BASE DE DONNÉES DISPONIBLE
-
 ### 🛒 PRODUITS (${produits.length})
 ${produits.take(50).join('\n')}
-${produits.length > 50 ? '\n... et ${produits.length - 50} autres produits' : ''}
+${produits.length > 50 ? '\\n... et ${produits.length - 50} autres produits' : ''}
 
 ### 👤 CLIENTS (${clients.length})
 ${clients.take(50).join('\n')}
-${clients.length > 50 ? '\n... et ${clients.length - 50} autres clients' : ''}
+${clients.length > 50 ? '\\n... et ${clients.length - 50} autres clients' : ''}
 
 ### 📦 COMMANDES (${commandes.length})
-${commandes.take(20).join('\n---\n')}
-${commandes.length > 20 ? '\n... et ${commandes.length - 20} autres commandes' : ''}
+${commandes.take(20).join('\\n---\\n')}
+${commandes.length > 20 ? '\\n... et ${commandes.length - 20} autres commandes' : ''}
 
 ### 🗺️ ROUTES (${routes.length})
-${routes.join('\n')}
+${routes.join('\\n')}
 
 ### 🎁 PROMOTIONS (${promotions.length})
-${promotions.join('\n')}
+${promotions.join('\\n')}
 
 ### 👥 UTILISATEURS (${utilisateurs.length})
-${utilisateurs.join('\n')}
+${utilisateurs.join('\\n')}
 
 ## 🎯 RÈGLES DE RÉPONSE STRICTES
 
-### 1. **RÉPONSE PRÉCISE ET CIBLÉE**
-- Réponds **uniquement** à ce qui est demandé
-- Si question spécifique → réponse spécifique
-- Si question générale → vue d'ensemble structurée
+1. **Réponds uniquement à ce qui est demandé.**
+2. **Ne fournis aucune information supplémentaire non demandée.**
+3. Si la question porte sur un produit, ne donne que les informations sur ce produit, rien d'autre.
+4. Si une correction orthographique ou de terme a été appliquée, indique-la en haut de ta réponse sous cette forme :
 
-### 2. **GESTION DES ÉLÉMENTS NON TROUVÉS**
-- Si élément non trouvé → message clair avec ❌
-- Propose des alternatives similaires avec ⚠️
-- **JAMAIS** d'invention de données
+> 🔍 Recherche pour "${userMessage}" → Correction automatique : "**${correctedMessage}**"
 
-### 3. **STRUCTURE MARKDOWN OBLIGATOIRE**
-- Utilise # ## ### pour les titres
-- Utilise - ou * pour les listes
-- Utilise **gras** pour les éléments importants
-- Utilise `code` pour les IDs/références
-- Utilise > pour les citations/notes importantes
-- Utilise des emojis appropriés (🛒 📦 👤 🎁 etc.)
-
-### 4. **TYPES DE QUESTIONS COURANTES**
-
-**Question d'identité** ("Qui est X?", "Infos sur Y")
-→ Toutes les infos disponibles, bien structurées
-
-**Question spécifique** ("Email de X", "Prix de Y")
-→ Réponse directe et précise
-
-**Question de recherche** ("Tous les produits de catégorie X")
-→ Liste filtrée et organisée
-
-**Question de comparaison** ("Différence entre X et Y")
-→ Tableau comparatif si possible
-
-**Question de statistiques** ("Combien de...", "Total des...")
-→ Chiffres avec contexte
-
-### 5. **CORRECTION AUTOMATIQUE**
-- Corrige les fautes d'orthographe
-- Interprète les abréviations communes
-- Gère les synonymes (commande = cmd, promotion = promo)
-
-### 6. **RÉPONSES D'ERREUR**
-Si aucune donnée trouvée :
-```
-❌ **Aucune information trouvée**
-
-La recherche pour "${messageAnalysis['query']}" n'a donné aucun résultat dans la base de données.
-
-**Suggestions :**
-- Vérifiez l'orthographe
-- Utilisez des termes plus généraux
-- Consultez la liste complète avec "tous les [produits/clients/commandes]"
-```
-
-### 7. **LANGUE ET STYLE**
-- Réponds **toujours en français**
-- Ton professionnel mais accessible
-- Utilise des emojis avec modération
-- Privilégie la clarté à l'exhaustivité
+5. Ne jamais inventer ou supposer des données.
+6. En cas d'absence totale d'information, affiche un message clair sans inventer.
+7. Utilise une structure Markdown claire avec titres (#, ##), listes (-), gras, et codes (`).
+8. Réponds toujours en français avec un ton professionnel et accessible.
 
 ---
 
-**Question de l'utilisateur :** $userMessage
-
+**Question originale :** $userMessage  
+**Question corrigée :** $correctedMessage  
 **Analyse détectée :** ${messageAnalysis['type']} - ${messageAnalysis['intent']}
 
-Réponds maintenant selon ces règles.""";
+Réponds maintenant selon ces règles."""; 
 
-    try {
-      final response = await http.post(
-        Uri.parse("https://openrouter.ai/api/v1/chat/completions"),
-        headers: {
-          "Authorization": "Bearer $_apiKey",
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: jsonEncode({
-          "model": "mistralai/mistral-7b-instruct",
-          "messages": [
-            {"role": "system", "content": systemPrompt},
-            {"role": "user", "content": userMessage},
-          ],
-          "temperature": 0.3,
-          "max_tokens": 1000,
-        }),
-      );
+  try {
+    final response = await http.post(
+      Uri.parse("https://openrouter.ai/api/v1/chat/completions"),
+      headers: {
+        "Authorization": "Bearer $_apiKey",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: jsonEncode({
+        "model": "mistralai/mistral-7b-instruct",
+        "messages": [
+          {"role": "system", "content": systemPrompt},
+          {"role": "user", "content": correctedMessage},
+        ],
+        "temperature": 0.3,
+        "max_tokens": 1000,
+      }),
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final message = data["choices"]?[0]?["message"]?["content"];
-        return message?.trim() ?? "❌ **Aucune réponse générée**\n\nL'IA n'a pas pu traiter votre demande.";
-      } else {
-        return "❌ **Erreur de communication**\n\n**Code :** ${response.statusCode}\n**Message :** ${response.reasonPhrase}\n\n```\n${response.body}\n```";
-      }
-    } catch (e) {
-      return "❌ **Erreur technique**\n\n```\n$e\n```\n\n> Vérifiez votre connexion internet et réessayez.";
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final message = data["choices"]?[0]?["message"]?["content"];
+      return message?.trim() ?? "❌ **Aucune réponse générée**\n\nL'IA n'a pas pu traiter votre demande.";
+    } else {
+      return "❌ **Erreur de communication**\n\n**Code :** ${response.statusCode}\n**Message :** ${response.reasonPhrase}\n\n```\n${response.body}\n```";
     }
+  } catch (e) {
+    return "❌ **Erreur technique**\n\n```\n$e\n```\n\n> Vérifiez votre connexion internet et réessayez.";
   }
+}
+
+String _autoCorrectMessage(String message, List<String> produits, List<String> clients, List<String> commandes) {
+  final lowerMsg = message.toLowerCase();
+
+  // ✅ Si une correction a déjà été apprise (auto-formation)
+  if (_autoLearnCorrections.containsKey(lowerMsg)) {
+    return _autoLearnCorrections[lowerMsg]!;
+  }
+
+  // ✅ Création d'un dictionnaire de recherche (produits + clients + commandes)
+  final allTerms = [
+    ...produits.map((p) => p.toLowerCase()),
+    ...clients.map((c) => c.toLowerCase()),
+    ...commandes.map((cmd) => cmd.toLowerCase())
+  ];
+
+  // ✅ Recherche du terme le plus proche
+  final bestMatch = lowerMsg.bestMatch(allTerms);
+  if (bestMatch.bestMatch.rating! > 0.6) {
+    final corrected = bestMatch.bestMatch.target!;
+    _autoLearnCorrections[lowerMsg] = corrected; // ✅ Apprentissage automatique
+    return corrected;
+  }
+
+  return message; // ✅ Pas de correction trouvée
+}
 
   Map<String, String> _analyzeMessage(String message) {
     final lowerMessage = message.toLowerCase();
@@ -643,6 +633,83 @@ Réponds maintenant selon ces règles.""";
     
     return {'type': 'general', 'intent': 'Question générale', 'query': message};
   }
+}
+int levenshteinDistance(String s, String t) {
+  if (s == t) return 0;
+  if (s.isEmpty) return t.length;
+  if (t.isEmpty) return s.length;
+
+  List<List<int>> dp =
+      List.generate(s.length + 1, (_) => List.filled(t.length + 1, 0));
+
+  for (int i = 0; i <= s.length; i++) {
+    dp[i][0] = i;
+  }
+  for (int j = 0; j <= t.length; j++) {
+    dp[0][j] = j;
+  }
+
+  for (int i = 1; i <= s.length; i++) {
+    for (int j = 1; j <= t.length; j++) {
+      int cost = s[i - 1] == t[j - 1] ? 0 : 1;
+      dp[i][j] = [
+        dp[i - 1][j] + 1, // Suppression
+        dp[i][j - 1] + 1, // Insertion
+        dp[i - 1][j - 1] + cost // Remplacement
+      ].reduce((a, b) => a < b ? a : b);
+    }
+  }
+  return dp[s.length][t.length];
+}
+
+String pretraiterMessage(String message) {
+  final abreviations = {
+    'cmd': 'commande',
+    'promo': 'promotion',
+    'produits dispo': 'produits disponibles',
+    'infos client': 'client',
+    'stat': 'statistique',
+    'tel': 'téléphone',
+  };
+
+  final motsConnus = {
+    'commande',
+    'client',
+    'produit',
+    'prix',
+    'categorie',
+    'promotion',
+    'statut',
+    'adresse',
+    'email',
+    'téléphone',
+  };
+
+  String msg = message.toLowerCase();
+
+  // ✅ Remplacement des abréviations connues
+  abreviations.forEach((abr, longForme) {
+    msg = msg.replaceAll(RegExp(r'\b' + abr + r'\b'), longForme);
+  });
+
+  // ✅ Correction des fautes avec notre fonction Levenshtein maison
+  final mots = msg.split(' ');
+  final correctedWords = mots.map((mot) {
+    if (motsConnus.contains(mot)) return mot;
+
+    String meilleurMot = mot;
+    int meilleureDistance = 2; // tolérance de 2 lettres
+    for (final motConnu in motsConnus) {
+      final distance = levenshteinDistance(mot, motConnu);
+      if (distance < meilleureDistance) {
+        meilleureDistance = distance;
+        meilleurMot = motConnu;
+      }
+    }
+    return meilleurMot;
+  }).join(' ');
+
+  return correctedWords;
 }
 
 class _ChatMessage {
