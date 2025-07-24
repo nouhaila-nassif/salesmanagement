@@ -230,7 +230,7 @@ if (widget.commande.statut == 'LIVREE' ||
           .map((p) => p.id)
           .whereType<int>()
           .toSet()
-          .toList(),
+          .toList(), clientType: '',
     );
 
     try {

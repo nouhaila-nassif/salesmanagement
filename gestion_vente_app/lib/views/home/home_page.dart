@@ -68,6 +68,13 @@ Widget _buildEvolutionChartParPeriode(List<CommandeDTO> commandes) {
     }
     return map;
   }
+Map<int, String> construireMapClientIdVersType(List<Client> clients) {
+  final map = <int, String>{};
+  for (var client in clients) {
+    map[client.id] = client.type;
+  }
+  return map;
+}
 
 @override
 Widget build(BuildContext context) {
@@ -113,30 +120,132 @@ Widget build(BuildContext context) {
               children: [
                 _buildMainKPISection(),
                 _buildTopClientsSection(),
-               
-
                 _buildStatisticsSection(currentUserRole: 'ADMIN'),
-                _buildChartsSection(),
+
+ FutureBuilder<List<dynamic>>(
+  future: Future.wait([_commandesFuture, _clientsFuture]),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const CircularProgressIndicator();
+    } else if (snapshot.hasError) {
+      return Text('Erreur: ${snapshot.error}');
+    } else if (!snapshot.hasData || snapshot.data!.length < 2) {
+      return const Text('Aucune donnée trouvée');
+    }
+
+    final List<CommandeDTO> commandes = snapshot.data![0] as List<CommandeDTO>;
+    final List<Client> clients = snapshot.data![1] as List<Client>;
+
+    // Création du mapping clientId -> clientType
+    final Map<int, String> clientsTypesMap = {
+      for (var client in clients) client.id : client.type,
+    };
+
+    // Calcul du nombre de commandes par type client
+    final commandesParTypeClient = <String, int>{};
+    for (var cmd in commandes) {
+      final clientId = cmd.clientId;
+      final typeClient = (clientId != null && clientsTypesMap.containsKey(clientId))
+          ? clientsTypesMap[clientId]!
+          : 'AUTRE';
+
+      commandesParTypeClient[typeClient] = (commandesParTypeClient[typeClient] ?? 0) + 1;
+    }
+
+    // Calcul du nombre de commandes par vendeur
+    final commandesParVendeur = <String, int>{};
+    for (var cmd in commandes) {
+      final vendeurNom = cmd.vendeurNom ?? 'Inconnu';
+      commandesParVendeur[vendeurNom] = (commandesParVendeur[vendeurNom] ?? 0) + 1;
+    }
+
+    // Calcul nombre de clients par route (première route)
+    final clientsParRoute = <String, int>{};
+    for (var client in clients) {
+      final routeNom = client.premiereRouteNom; // getter dans ta classe Client
+      clientsParRoute[routeNom] = (clientsParRoute[routeNom] ?? 0) + 1;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 24),
+
+        // Titre global pour les deux graphiques commandes par vendeur et par type client
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            "📊 Statistiques des Commandes",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            textAlign: TextAlign.center,
+          ),
+        ),
+
+        // Ligne horizontale avec les 2 diagrammes commandes par vendeur et type client
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 8),
+                  BarChartCommandesParVendeur(commandesParVendeur),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 8),
+                  PieChartCommandesParTypeClient(commandesParTypeClient),
+                ],
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 32),
+
+        // Titre pour clients par route
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+         
+        ),
+
+        const SizedBox(height: 8),
+
+        // Graphique clients par route
+        BarChartClientsParRoute(clientsParRoute),
+
+        const SizedBox(height: 24),
+
+        // Ensuite, ton top produits en dessous
+        _buildTopProduitsSection(commandes),
+      ],
+    );
+  },
+),
               ],
             ),
           ),
         ),
 
         // Bulle assistant flottante à droite
-Positioned(
-  right: 16,        // ← ici, à droite
-  bottom: 32,
-  child: FloatingActionButton(
-    backgroundColor: Theme.of(context).primaryColor,
-    heroTag: 'assistantChatBtn',
-    onPressed: () {
-      Navigator.pushNamed(context, '/ia');
-    },
-    tooltip: "Comment puis-je vous aider ?",
-    child: const Icon(Icons.chat_bubble_outline, size: 28),
-  ),
-),
-
+        Positioned(
+          right: 16,
+          bottom: 32,
+          child: FloatingActionButton(
+            backgroundColor: Theme.of(context).primaryColor,
+            heroTag: 'assistantChatBtn',
+            onPressed: () {
+              Navigator.pushNamed(context, '/ia');
+            },
+            tooltip: "Comment puis-je vous aider ?",
+            child: const Icon(Icons.chat_bubble_outline, size: 28),
+          ),
+        ),
       ],
     ),
   );
@@ -175,82 +284,162 @@ Widget _buildTopClientsSection() {
   );
 }
 
-  Widget _buildMainKPISection() {
-    return FutureBuilder(
-      future: Future.wait([_commandesFuture, _clientsFuture, _utilisateursFuture]),
-      builder: (context, AsyncSnapshot<List<dynamic>> snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildLoadingCard('Chargement des KPI...');
+ Widget _buildMainKPISection() {
+  return FutureBuilder(
+    future: Future.wait([_commandesFuture, _clientsFuture, _utilisateursFuture]),
+    builder: (context, AsyncSnapshot<List<dynamic>> snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return _buildLoadingCard('Chargement des KPI...');
+      }
+      
+      if (snapshot.hasError) {
+        return _buildErrorCard('Erreur de chargement des données', _refreshData);
+      }
+      
+      final commandes = snapshot.data?[0] as List<CommandeDTO>? ?? [];
+      final clients = snapshot.data?[1] as List<Client>? ?? [];
+      final utilisateurs = snapshot.data?[2] as List<UtilisateurResponse>? ?? [];
+      
+      final totalCommandes = commandes.length;
+      final totalClients = clients.length;
+      final totalUtilisateurs = utilisateurs.length;
+      
+      double totalCA = commandes.fold(0, (sum, cmd) => sum + (cmd.montantTotal ?? 0));
+      double avgCA = totalCommandes > 0 ? totalCA / totalCommandes : 0;
+
+      // 1. Vendeurs actifs
+      final vendeursActifs = commandes.map((c) => c.vendeurNom).whereType<String>().toSet().length;
+
+      // 2. Taux de commandes livrées
+      final commandesLivrees = commandes.where((c) => c.statut == 'LIVREE').length;
+      final tauxLivraison = totalCommandes > 0 ? (commandesLivrees / totalCommandes) * 100 : 0;
+
+      // 3. Montant total remises (exemple, si champ montantReduction existe)
+      double totalRemises = commandes.fold(0, (sum, cmd) => sum + (cmd.montantReduction ?? 0));
+
+      // 4. Nombre moyen de commandes par client
+      final commandesParClient = <int, int>{};
+      for (var cmd in commandes) {
+        final idClient = cmd.clientId ?? -1;
+        commandesParClient[idClient] = (commandesParClient[idClient] ?? 0) + 1;
+      }
+      double avgCommandesParClient = commandesParClient.isNotEmpty
+          ? commandesParClient.values.reduce((a, b) => a + b) / commandesParClient.length
+          : 0;
+
+      // 5. Client le plus actif
+      final clientPlusActif = commandesParClient.entries.fold<MapEntry<int, int>?>(null, (prev, curr) {
+        if (prev == null || curr.value > prev.value) return curr;
+        return prev;
+      });
+
+      // 6. Produit le plus vendu (exemple avec lignes commande si accessible)
+      // Ici, je suppose que tu as accès aux lignes de commande et produits.
+      // Sinon, à adapter selon ta structure.
+      final produitVenduCounts = <String, int>{};
+      for (var cmd in commandes) {
+        for (var ligne in cmd.lignes) {
+          final prodNom = ligne.produit?.nom ?? 'Inconnu';
+          produitVenduCounts[prodNom] = (produitVenduCounts[prodNom] ?? 0) + (ligne.quantite ?? 0);
         }
-        
-        if (snapshot.hasError) {
-          return _buildErrorCard('Erreur de chargement des données', _refreshData);
-        }
-        
-        final commandes = snapshot.data?[0] as List<CommandeDTO>? ?? [];
-        final clients = snapshot.data?[1] as List<Client>? ?? [];
-        final utilisateurs = snapshot.data?[2] as List<UtilisateurResponse>? ?? [];
-        
-        final totalCommandes = commandes.length;
-        final totalClients = clients.length;
-        final totalUtilisateurs = utilisateurs.length;
-        
-        double totalCA = commandes.fold(0, (sum, cmd) => sum + (cmd.montantTotal ?? 0));
-        double avgCA = totalCommandes > 0 ? totalCA / totalCommandes : 0;
-        
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "📊 KPI Principaux",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.2,
-                children: [
-                  _buildKPICard(
-                    title: "Chiffre d'Affaires",
-                    value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalCA),
-                    icon: Icons.attach_money,
-                    color: Colors.green,
-                    trend: _calculateTrend(commandes, (c) => c.montantTotal ?? 0),
-                  ),
-                  _buildKPICard(
-                    title: "Commandes",
-                    value: totalCommandes.toString(),
-                    icon: Icons.shopping_cart,
-                    color: Colors.blue,
-                    trend: _calculateTrend(commandes, (c) => 1),
-                  ),
-                  _buildKPICard(
-                    title: "Panier Moyen",
-                    value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(avgCA),
-                    icon: Icons.assessment,
-                    color: Colors.orange,
-                  ),
-                  _buildKPICard(
-                    title: "Clients",
-                    value: totalClients.toString(),
-                    icon: Icons.people,
-                    color: Colors.purple,
-                    trend: _calculateTrend(clients, (c) => 1),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+      }
+      final produitPlusVendu = produitVenduCounts.entries.fold<MapEntry<String, int>?>(null, (prev, curr) {
+        if (prev == null || curr.value > prev.value) return curr;
+        return prev;
+      });
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "📊 KPI Principaux",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.2,
+              children: [
+                _buildKPICard(
+                  title: "Chiffre d'Affaires",
+                  value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalCA),
+                  icon: Icons.attach_money,
+                  color: Colors.green,
+                  trend: _calculateTrend(commandes, (c) => c.montantTotal ?? 0),
+                ),
+                _buildKPICard(
+                  title: "Commandes",
+                  value: totalCommandes.toString(),
+                  icon: Icons.shopping_cart,
+                  color: Colors.blue,
+                  trend: _calculateTrend(commandes, (c) => 1),
+                ),
+                _buildKPICard(
+                  title: "Panier Moyen",
+                  value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(avgCA),
+                  icon: Icons.assessment,
+                  color: Colors.orange,
+                ),
+                _buildKPICard(
+                  title: "Clients",
+                  value: totalClients.toString(),
+                  icon: Icons.people,
+                  color: Colors.purple,
+                  trend: _calculateTrend(clients, (c) => 1),
+                ),
+                // Nouveaux KPIs
+                _buildKPICard(
+                  title: "Vendeurs Actifs",
+                  value: vendeursActifs.toString(),
+                  icon: Icons.person,
+                  color: Colors.teal,
+                ),
+                _buildKPICard(
+                  title: "Taux Livraison (%)",
+                  value: "${tauxLivraison.toStringAsFixed(1)}%",
+                  icon: Icons.local_shipping,
+                  color: Colors.indigo,
+                ),
+                _buildKPICard(
+                  title: "Total Remises",
+                  value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalRemises),
+                  icon: Icons.percent,
+                  color: Colors.redAccent,
+                ),
+                _buildKPICard(
+                  title: "Moyenne Commandes / Client",
+                  value: avgCommandesParClient.toStringAsFixed(1),
+                  icon: Icons.account_balance_wallet,
+                  color: Colors.brown,
+                ),
+                _buildKPICard(
+                  title: "Client le + actif",
+                  value: clientPlusActif != null
+                      ? (clients.firstWhere((c) => c.id == clientPlusActif.key).nom + " (${clientPlusActif.value})")
+                      : "-",
+                  icon: Icons.star,
+                  color: Colors.amber,
+                ),
+                _buildKPICard(
+                  title: "Produit le + vendu",
+                  value: produitPlusVendu != null ? "${produitPlusVendu.key} (${produitPlusVendu.value})" : "-",
+                  icon: Icons.shopping_basket,
+                  color: Colors.deepPurple,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildKPICard({
     required String title,
@@ -323,6 +512,94 @@ Widget _buildTopClientsSection() {
     );
   }
 
+Widget BarChartClientsParRoute(Map<String, int> clientsParRoute) {
+  final sorted = clientsParRoute.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  final topN = sorted.take(10).toList(); // Top 10 routes
+
+  final maxValue = (topN.isNotEmpty) ? topN.first.value.toDouble() + 2.0 : 10.0;
+
+  return SizedBox(
+    height: 400,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.all(8),
+          child: Text(
+            "Nombre de Clients par Route",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Expanded(
+          child: BarChart(
+            BarChartData(
+              maxY: maxValue,
+              barGroups: List.generate(topN.length, (index) {
+                final entry = topN[index];
+                return BarChartGroupData(
+                  x: index,
+                  barRods: [
+                    BarChartRodData(
+                      toY: entry.value.toDouble(),
+                      color: Colors.deepPurple,
+                      width: 20,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ],
+                  showingTooltipIndicators: [0],
+                );
+              }),
+              titlesData: FlTitlesData(
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 60,
+                    getTitlesWidget: (value, meta) {
+                      int index = value.toInt();
+                      if (index < 0 || index >= topN.length) {
+                        return const SizedBox();
+                      }
+                      final routeName = topN[index].key;
+                      return SideTitleWidget(
+                        axisSide: AxisSide.bottom,
+                        child: Text(
+                          routeName,
+                          style: const TextStyle(fontSize: 10),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                  ),
+                ),
+                rightTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+              ),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                drawHorizontalLine: true,
+              ),
+              borderData: FlBorderData(show: false),
+              alignment: BarChartAlignment.spaceAround,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
   double _calculateTrend<T>(List<T> currentData, double Function(T) valueExtractor) {
     if (currentData.isEmpty || currentData.length < 2) return 0.0;
     
@@ -336,6 +613,21 @@ Widget _buildTopClientsSection() {
     if (firstSum == 0) return 0.0;
     return ((secondSum - firstSum) / firstSum) * 100;
   }
+Map<String, int> calculerClientsParRoute(List<Client> clients) {
+  final Map<String, int> clientsParRoute = {};
+
+  for (var client in clients) {
+    if (client.routes.isEmpty) {
+      clientsParRoute['Sans route'] = (clientsParRoute['Sans route'] ?? 0) + 1;
+    } else {
+      for (var route in client.routes) {
+        clientsParRoute[route.nom] = (clientsParRoute[route.nom] ?? 0) + 1;
+      }
+    }
+  }
+
+  return clientsParRoute;
+}
 
 Widget _buildStatisticsSection({required String currentUserRole}) {
   return Padding(
@@ -358,69 +650,218 @@ Widget _buildStatisticsSection({required String currentUserRole}) {
           ],
         ),
         const SizedBox(height: 16),
+
         LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth > 900) {
-              // ✅ Version grands écrans : deux colonnes équilibrées avec même hauteur
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (currentUserRole == 'ADMIN')
-                      Expanded(
-                        flex: 1,
-                        child: _buildUserStatsByRoleSection(),
-                      ),
-                    if (currentUserRole == 'ADMIN') const SizedBox(width: 20),
-                    Expanded(
-                      flex: 1,
-                      child: _buildClientStatsSection(),
-                    ),
-                  ],
-                ),
-              );
-            } else if (constraints.maxWidth > 600) {
-              // ✅ Version écrans moyens : deux colonnes équilibrées
-              return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (currentUserRole == 'ADMIN')
-                      Expanded(
-                        flex: 1,
-                        child: _buildUserStatsByRoleSection(),
-                      ),
-                    if (currentUserRole == 'ADMIN') const SizedBox(width: 12),
-                    Expanded(
-                      flex: 1,
-                      child: _buildClientStatsSection(),
-                    ),
-                  ],
-                ),
-              );
-            } else {
-              // ✅ Version mobiles : disposition verticale en colonne, même hauteur forcée
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            double width = constraints.maxWidth;
+
+            // Web ou écran large
+            if (width >= 900) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (currentUserRole == 'ADMIN')
-                    SizedBox(
-                      height: 250, // ✅ même hauteur forcée
-                      child: _buildUserStatsByRoleSection(),
-                    ),
-                  if (currentUserRole == 'ADMIN') const SizedBox(height: 12),
-                  SizedBox(
-                    height: 250,
-                    child: _buildClientStatsSection(),
-                  ),
+                    Expanded(child: _buildUserStatsByRoleSection()),
+                  if (currentUserRole == 'ADMIN') const SizedBox(width: 20),
+                  Expanded(child: _buildClientStatsSection()),
                 ],
               );
             }
+
+            // Tablette ou écrans moyens
+            if (width >= 600) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (currentUserRole == 'ADMIN')
+                    Flexible(child: _buildUserStatsByRoleSection()),
+                  if (currentUserRole == 'ADMIN') const SizedBox(width: 12),
+                  Flexible(child: _buildClientStatsSection()),
+                ],
+              );
+            }
+
+            // Mobile : colonne avec hauteur forcée
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (currentUserRole == 'ADMIN') ...[
+                  SizedBox(height: 250, child: _buildUserStatsByRoleSection()),
+                  const SizedBox(height: 12),
+                ],
+                SizedBox(height: 250, child: _buildClientStatsSection()),
+              ],
+            );
           },
         ),
       ],
     ),
   );
+}
+Widget BarChartCommandesParVendeur(Map<String, int> commandesParVendeur) {
+  final sorted = commandesParVendeur.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
+  return SizedBox(
+    height: 350,  // un peu plus haut pour le titre
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Text(
+            'Commandes par Vendeur',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        Expanded(
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: (sorted.isNotEmpty) ? sorted.first.value.toDouble() + 2 : 10,
+              barGroups: List.generate(sorted.length, (index) {
+                final entry = sorted[index];
+                return BarChartGroupData(
+                  x: index,
+                  barRods: [
+                    BarChartRodData(
+                      toY: entry.value.toDouble(),
+                      color: Colors.teal,
+                      width: 18,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ],
+                );
+              }),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: true, reservedSize: 35),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, _) {
+                      int index = value.toInt();
+                      if (index < 0 || index >= sorted.length) return Container();
+                      final label = sorted[index].key;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          label,
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      );
+                    },
+                    reservedSize: 40,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+Widget BarChartTopProduits(Map<String, int> quantitesParProduit) {
+  final sorted = quantitesParProduit.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  final topN = sorted.take(10).toList();
+
+  return SizedBox(
+    height: 350,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.all(8),
+          child: Text(
+            "Top Produits Commandés",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Expanded(
+          child: RotatedBox(
+            quarterTurns: 3, // 90° dans le sens antihoraire
+            child: BarChart(
+              BarChartData(
+                maxY: (topN.isNotEmpty) ? topN.first.value.toDouble() + 5 : 10,
+                barGroups: List.generate(topN.length, (index) {
+                  final entry = topN[index];
+                  return BarChartGroupData(
+                    x: index,
+                    barRods: [
+                      BarChartRodData(
+                        toY: entry.value.toDouble(),
+                        color: Colors.orange.shade700,
+                        width: 18,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ],
+                  );
+                }),
+                alignment: BarChartAlignment.spaceBetween,
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, _) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= topN.length) return Container();
+                        final label = topN[idx].key;
+                        return RotatedBox(
+                          quarterTurns: 1,
+                          child: Text(
+                            label,
+                            style: const TextStyle(fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      },
+                      reservedSize: 150,
+                    ),
+                  ),
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: FlGridData(show: true),
+                borderData: FlBorderData(show: false),
+                barTouchData: BarTouchData(enabled: true),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Map<String, int> calculerQuantitesParProduit(List<CommandeDTO> commandes) {
+  final Map<String, int> quantitesParProduit = {};
+
+  for (var commande in commandes) {
+    for (var ligne in commande.lignes) {
+      final nomProduit = ligne.produit?.nom ?? 'Produit inconnu';
+      quantitesParProduit[nomProduit] = (quantitesParProduit[nomProduit] ?? 0) + ligne.quantite;
+    }
+  }
+
+  return quantitesParProduit;
+}
+
+Widget _buildTopProduitsSection(List<CommandeDTO> commandes) {
+  final quantitesParProduit = calculerQuantitesParProduit(commandes);
+
+  // Choisis l'un des deux :
+  return BarChartTopProduits(quantitesParProduit);
+  // return PieChartTopProduits(quantitesParProduit);
 }
 
 Widget _buildUserStatsByRoleSection() {
@@ -447,122 +888,215 @@ Widget _buildUserStatsByRoleSection() {
         shadowColor: Colors.grey.withOpacity(0.3),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: const [
-                  Icon(Icons.bar_chart, color: Colors.blueAccent, size: 22),
-                  SizedBox(width: 6),
-                  Text(
-                    "Statistiques Utilisateurs par Rôle",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Total: ${snapshot.data!.length} utilisateurs",
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 260,
-                child: BarChart(
-                  BarChartData(
-                    maxY: (maxCount + 2).toDouble(),
-                    titlesData: FlTitlesData(
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 35,
-                          getTitlesWidget: (value, _) {
-                            return Text(
-                              value.toInt().toString(),
-                              style: const TextStyle(fontSize: 10),
-                            );
-                          },
-                        ),
-                      ),
-                      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (value, _) {
-                            final index = value.toInt();
-                            if (index >= 0 && index < roles.length) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  roles[index],
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                                ),
-                              );
-                            }
-                            return const SizedBox();
-                          },
-                        ),
-                      ),
+          child: SizedBox(
+            height: 350, // hauteur fixe pour éviter overflow vertical
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.bar_chart, color: Colors.blueAccent, size: 22),
+                    SizedBox(width: 6),
+                    Text(
+                      "Statistiques Utilisateurs par Rôle",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
-                    barGroups: List.generate(roles.length, (index) {
-                      final role = roles[index];
-                      final count = usersByRole[role]!.length;
-                      return BarChartGroupData(
-                        x: index,
-                        barRods: [
-                          BarChartRodData(
-                            toY: count.toDouble(),
-                            width: 22,
-                            borderRadius: BorderRadius.circular(6),
-                            gradient: LinearGradient(
-                              colors: [
-                                _getRoleColor(role).withOpacity(0.7),
-                                _getRoleColor(role),
-                              ],
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Total: ${snapshot.data!.length} utilisateurs",
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 400;
+                      final barWidth = isNarrow ? 14.0 : 22.0;
+                      final chartWidth = roles.length * (barWidth + 20);
+
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: chartWidth < constraints.maxWidth
+                              ? constraints.maxWidth
+                              : chartWidth,
+                          height: constraints.maxHeight,
+                          child: BarChart(
+                            BarChartData(
+                              maxY: (maxCount + 2).toDouble(),
+                              titlesData: FlTitlesData(
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 35,
+                                    getTitlesWidget: (value, _) => Text(
+                                      value.toInt().toString(),
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  ),
+                                ),
+                                rightTitles: AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false)),
+                                topTitles: AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false)),
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    getTitlesWidget: (value, _) {
+                                      final index = value.toInt();
+                                      if (index >= 0 && index < roles.length) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            roles[index],
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500),
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox();
+                                    },
+                                  ),
+                                ),
+                              ),
+                              barGroups: List.generate(roles.length, (index) {
+                                final role = roles[index];
+                                final count = usersByRole[role]!.length;
+                                return BarChartGroupData(
+                                  x: index,
+                                  barRods: [
+                                    BarChartRodData(
+                                      toY: count.toDouble(),
+                                      width: barWidth,
+                                      borderRadius: BorderRadius.circular(6),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          _getRoleColor(role).withOpacity(0.7),
+                                          _getRoleColor(role),
+                                        ],
+                                        begin: Alignment.bottomCenter,
+                                        end: Alignment.topCenter,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }),
+                              gridData: FlGridData(
+                                show: true,
+                                drawHorizontalLine: true,
+                                getDrawingHorizontalLine: (value) => FlLine(
+                                  color: Colors.grey.withOpacity(0.2),
+                                  strokeWidth: 1,
+                                ),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              barTouchData: BarTouchData(
+                                enabled: true,
+                                touchTooltipData: BarTouchTooltipData(
+                                  tooltipBgColor: Colors.blueGrey[800],
+                                  tooltipRoundedRadius: 8,
+                                  getTooltipItem: (group, _, rod, __) {
+                                    final role = roles[group.x.toInt()];
+                                    final count = rod.toY.toInt();
+                                    return BarTooltipItem(
+                                      "$role\n$count utilisateurs",
+                                      const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
                             ),
                           ),
-                        ],
+                        ),
                       );
-                    }),
-                    gridData: FlGridData(
-                      show: true,
-                      drawHorizontalLine: true,
-                      getDrawingHorizontalLine: (value) => FlLine(
-                        color: Colors.grey.withOpacity(0.2),
-                        strokeWidth: 1,
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    barTouchData: BarTouchData(
-                      enabled: true,
-                      touchTooltipData: BarTouchTooltipData(
-                        tooltipBgColor: Colors.blueGrey[800],
-                        tooltipRoundedRadius: 8,
-                        getTooltipItem: (group, _, rod, __) {
-                          final role = roles[group.x.toInt()];
-                          final count = rod.toY.toInt();
-                          return BarTooltipItem(
-                            "$role\n$count utilisateurs",
-                            const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                    },
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     },
+  );
+}
+
+Widget PieChartCommandesParTypeClient(Map<String, int> commandesParTypeClient) {
+  final total = commandesParTypeClient.values.fold(0, (a, b) => a + b);
+  final colors = [
+    Colors.teal,
+    Colors.orange,
+    Colors.purple,
+    Colors.green,
+    Colors.blue,
+    Colors.red,
+    Colors.indigo,
+  ];
+
+  final sections = commandesParTypeClient.entries.toList().asMap().entries.map((entry) {
+    final index = entry.key;
+    final type = entry.value.key;
+    final value = entry.value.value;
+    final percentage = total == 0 ? 0.0 : (value / total * 100);
+
+    return PieChartSectionData(
+      value: value.toDouble(),
+      title: '${percentage.toStringAsFixed(1)}%',
+      color: colors[index % colors.length],
+      radius: 60,
+      titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+    );
+  }).toList();
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          "📊 Commandes par Type de Client",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ),
+      Row(
+        children: [
+          SizedBox(
+            width: 200,
+            height: 200,
+            child: PieChart(PieChartData(sections: sections)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: commandesParTypeClient.entries.toList().asMap().entries.map((entry) {
+                final index = entry.key;
+                final type = entry.value.key;
+                final count = entry.value.value;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Container(width: 14, height: 14, color: colors[index % colors.length]),
+                      const SizedBox(width: 8),
+                      Text('$type: $count commandes'),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    ],
   );
 }
 
@@ -618,27 +1152,28 @@ Widget _buildClientsStats(List<Client> clients) {
   final interval = _calculateInterval(maxValue);
   final colors = sortedTypes.map((e) => _getClientTypeColor(e.key)).toList();
 
-  return Card(
-    elevation: 2,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
+return Card(
+  elevation: 2,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: SizedBox(
+      height: 300,  // Hauteur fixe pour toute la carte
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             "Répartition des Clients par Type",
             style: TextStyle(
-              fontSize: 16, 
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 220,
+          Expanded(  // <-- Le graphique prend toute la place restante
             child: BarChart(
               _buildBarChartData(sortedTypes, maxValue, interval, colors),
             ),
@@ -648,7 +1183,9 @@ Widget _buildClientsStats(List<Client> clients) {
         ],
       ),
     ),
-  );
+  ),
+);
+
 }
 
 BarChartData _buildBarChartData(
@@ -776,43 +1313,42 @@ BarChartData _buildBarChartData(
   );
 }
 Widget _buildLegend(List<MapEntry<String, int>> data, List<Color> colors) {
-  return SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: Wrap(
+      spacing: 12,    // espace horizontal entre éléments
+      runSpacing: 8,  // espace vertical entre lignes (wrap)
+      alignment: WrapAlignment.center,
       children: data.asMap().entries.map((entry) {
         final index = entry.key;
         final type = entry.value;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: colors[index],
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 2,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: colors[index],
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(
-                '${_abbreviateClientType(type.key)} (${type.value})',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.black87,
-                ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${_abbreviateClientType(type.key)} (${type.value})',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black87,
               ),
-            ],
-          ),
+            ),
+          ],
         );
       }).toList(),
     ),

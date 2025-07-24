@@ -6,7 +6,7 @@ import '../services/produit_service.dart';
 import '../services/client_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:string_similarity/string_similarity.dart';
-
+import '../services/WebContentService.dart';
 import '../services/promotion_service.dart';
 import '../services/route_service.dart';
 import '../services/utilisateur_service.dart';
@@ -24,7 +24,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
 
-  final String _apiKey = "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";
+  final String _apiKey =
+      "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";
 
   @override
   void initState() {
@@ -56,306 +57,312 @@ Posez votre question ! 👇""",
     ));
   }
 
-@override
-Widget build(BuildContext context) {
-  final primaryColor = Theme.of(context).primaryColor;
+  @override
+  Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
 
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text("Assistant Commercial IA"),
-      backgroundColor: primaryColor,
-      foregroundColor: Colors.white,
-      elevation: 2,
-    ),
-    body: Column(
-      children: [
-        // Messages area
-        Expanded(
-          child: Container(
-            color: Colors.grey[50],
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                return _buildMessageBubble(msg, primaryColor);
-              },
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Assistant Commercial IA"),
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 2,
+      ),
+      body: Column(
+        children: [
+          // Messages area
+          Expanded(
+            child: Container(
+              color: Colors.grey[50],
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final msg = _messages[index];
+                  return _buildMessageBubble(msg, primaryColor);
+                },
+              ),
             ),
           ),
-        ),
 
-        // Loading indicator
-        if (_isLoading)
+          // Loading indicator
+          if (_isLoading)
+            Container(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    "L'assistant réfléchit...",
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Input area
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      hintText: "Posez votre question...",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: primaryColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: primaryColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: primaryColor),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      suffixIcon: _controller.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _controller.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                    ),
+                    onSubmitted: _handleUserMessage,
+                    onChanged: (value) => setState(() {}),
+                    enabled: !_isLoading,
+                  ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  "L'assistant réfléchit...",
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontStyle: FontStyle.italic,
-                  ),
+                FloatingActionButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () => _handleUserMessage(_controller.text),
+                  backgroundColor: _isLoading ? Colors.grey : primaryColor,
+                  mini: true,
+                  child: const Icon(Icons.send, color: Colors.white),
                 ),
               ],
             ),
           ),
-
-        // Input area
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
-                blurRadius: 4,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  decoration: InputDecoration(
-                    hintText: "Posez votre question...",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: primaryColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: primaryColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: primaryColor),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    suffixIcon: _controller.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _controller.clear();
-                              setState(() {});
-                            },
-                          )
-                        : null,
-                  ),
-                  onSubmitted: _handleUserMessage,
-                  onChanged: (value) => setState(() {}),
-                  enabled: !_isLoading,
-                ),
-              ),
-              const SizedBox(width: 12),
-              FloatingActionButton(
-                onPressed: _isLoading ? null : () => _handleUserMessage(_controller.text),
-                backgroundColor: _isLoading ? Colors.grey : primaryColor,
-                mini: true,
-                child: const Icon(Icons.send, color: Colors.white),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildMessageBubble(_ChatMessage msg, Color primaryColor) {
-  final isUser = msg.sender == "Vous";
-
-  return Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (!isUser) ...[
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: primaryColor,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(
-              Icons.smart_toy,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
         ],
+      ),
+    );
+  }
 
-        Expanded(
-          child: Column(
-            crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              // Sender name and timestamp
-              Row(
-                mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-                children: [
-                  if (!isUser) ...[
-                    Text(
-                      "Assistant",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    _formatTimestamp(msg.timestamp),
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (isUser) ...[
-                    const SizedBox(width: 8),
-                    const Text(
-                      "Vous",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
+  Widget _buildMessageBubble(_ChatMessage msg, Color primaryColor) {
+    final isUser = msg.sender == "Vous";
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isUser) ...[
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 4),
-
-              // Message bubble
-              Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.8,
-                ),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isUser ? primaryColor : Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(20),
-                    topRight: const Radius.circular(20),
-                    bottomLeft: isUser ? const Radius.circular(20) : const Radius.circular(4),
-                    bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(20),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+              child: const Icon(
+                Icons.smart_toy,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                // Sender name and timestamp
+                Row(
+                  mainAxisAlignment:
+                      isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                  children: [
+                    if (!isUser) ...[
+                      Text(
+                        "Assistant",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      _formatTimestamp(msg.timestamp),
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
                     ),
+                    if (isUser) ...[
+                      const SizedBox(width: 8),
+                      const Text(
+                        "Vous",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-                child: isUser
-                    ? Text(
-                        msg.message,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          height: 1.4,
-                        ),
-                      )
-                    : MarkdownBody(
-                        data: msg.message,
-                        styleSheet: MarkdownStyleSheet(
-                          p: const TextStyle(
+                const SizedBox(height: 4),
+
+                // Message bubble
+                Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.8,
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isUser ? primaryColor : Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(20),
+                      topRight: const Radius.circular(20),
+                      bottomLeft: isUser
+                          ? const Radius.circular(20)
+                          : const Radius.circular(4),
+                      bottomRight: isUser
+                          ? const Radius.circular(4)
+                          : const Radius.circular(20),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: isUser
+                      ? Text(
+                          msg.message,
+                          style: const TextStyle(
+                            color: Colors.white,
                             fontSize: 16,
                             height: 1.4,
-                            color: Colors.black87,
                           ),
-                          h1: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: primaryColor,
-                            height: 1.2,
-                          ),
-                          h2: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                            height: 1.2,
-                          ),
-                          h3: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: primaryColor,
-                            height: 1.2,
-                          ),
-                          listBullet: TextStyle(
-                            color: primaryColor,
-                            fontSize: 16,
-                          ),
-                          code: TextStyle(
-                            backgroundColor: Colors.grey[100],
-                            fontFamily: 'monospace',
-                            fontSize: 14,
-                          ),
-                          codeblockDecoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          blockquote: TextStyle(
-                            color: Colors.grey[700],
-                            fontStyle: FontStyle.italic,
-                          ),
-                          blockquoteDecoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            border: Border(
-                              left: BorderSide(
-                                color: Colors.grey[400]!,
-                                width: 4,
+                        )
+                      : MarkdownBody(
+                          data: msg.message,
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(
+                              fontSize: 16,
+                              height: 1.4,
+                              color: Colors.black87,
+                            ),
+                            h1: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                              height: 1.2,
+                            ),
+                            h2: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                              height: 1.2,
+                            ),
+                            h3: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor,
+                              height: 1.2,
+                            ),
+                            listBullet: TextStyle(
+                              color: primaryColor,
+                              fontSize: 16,
+                            ),
+                            code: TextStyle(
+                              backgroundColor: Colors.grey[100],
+                              fontFamily: 'monospace',
+                              fontSize: 14,
+                            ),
+                            codeblockDecoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            blockquote: TextStyle(
+                              color: Colors.grey[700],
+                              fontStyle: FontStyle.italic,
+                            ),
+                            blockquoteDecoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              border: Border(
+                                left: BorderSide(
+                                  color: Colors.grey[400]!,
+                                  width: 4,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
+                ),
+              ],
+            ),
+          ),
+          if (isUser) ...[
+            const SizedBox(width: 12),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(20),
               ),
-            ],
-          ),
-        ),
-
-        if (isUser) ...[
-          const SizedBox(width: 12),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.grey[400],
-              borderRadius: BorderRadius.circular(20),
+              child: const Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
-            child: const Icon(
-              Icons.person,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
+          ],
         ],
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
 
   String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final diff = now.difference(timestamp);
-    
+
     if (diff.inMinutes < 1) {
       return "Maintenant";
     } else if (diff.inMinutes < 60) {
@@ -379,125 +386,130 @@ Widget _buildMessageBubble(_ChatMessage msg, Color primaryColor) {
     });
   }
 
-/// ✅ Ta fonction `_handleUserMessage` avec la correction intégrée
-void _handleUserMessage(String message) async {
-  if (message.trim().isEmpty || _isLoading) return;
+  /// ✅ Ta fonction `_handleUserMessage` avec la correction intégrée
+  void _handleUserMessage(String message) async {
+    if (message.trim().isEmpty || _isLoading) return;
 
-  setState(() {
-    _messages.add(_ChatMessage(
-      sender: "Vous",
-      message: message.trim(),
-      timestamp: DateTime.now(),
-    ));
-    _isLoading = true;
-  });
+    setState(() {
+      _messages.add(_ChatMessage(
+        sender: "Vous",
+        message: message.trim(),
+        timestamp: DateTime.now(),
+      ));
+      _isLoading = true;
+    });
 
-  _scrollToBottom();
+    _scrollToBottom();
 
-  try {
-    // ✅ Correction automatique du message utilisateur
-    final correctedMessage = pretraiterMessage(message);
+    try {
+      // ✅ Correction automatique du message utilisateur
+      final correctedMessage = pretraiterMessage(message);
 
-    // Récupération des données (inchangé)
-    final produits = await ProduitService.getAllProduits();
-    final clients = await ClientService.getAllClients();
-    final promotions = await PromotionService.getAllPromotions();
-    final routes = await RouteService.getAllRoutes();
-    final commandes = await CommandeService.getCommandes();
-    final utilisateurs = await UtilisateurService.getAllUtilisateurs();
+      // Récupération des données (inchangé)
+      final produits = await ProduitService.getAllProduits();
+      final clients = await ClientService.getAllClients();
+      final promotions = await PromotionService.getAllPromotions();
+      final routes = await RouteService.getAllRoutes();
+      final commandes = await CommandeService.getCommandes();
+      final utilisateurs = await UtilisateurService.getAllUtilisateurs();
 
-    // Formatage des données (inchangé)
-    final infosProduits = produits.map((p) {
-      return "ID: ${p.id} | ${p.nom} | Catégorie: ${p.categorieNom} | Description: ${p.description ?? "Pas de description"} | Prix: ${p.prixUnitaire} DH | Stock disponible";
-    }).toList();
+      // Formatage des données (inchangé)
+      final infosProduits = produits.map((p) {
+        return "ID: ${p.id} | ${p.nom} | Catégorie: ${p.categorieNom} | Description: ${p.description ?? "Pas de description"} | Prix: ${p.prixUnitaire} DH | Stock disponible";
+      }).toList();
 
-    final infosClients = clients.map((c) {
-      return "ID: ${c.id} | ${c.nom} | Type: ${c.type} | Adresse: ${c.adresse ?? "Non spécifiée"} | Téléphone: ${c.telephone ?? "Non spécifié"} | Email: ${c.email ?? "Email non spécifié"}";
-    }).toList();
+      final infosClients = clients.map((c) {
+        return "ID: ${c.id} | ${c.nom} | Type: ${c.type} | Adresse: ${c.adresse ?? "Non spécifiée"} | Téléphone: ${c.telephone ?? "Non spécifié"} | Email: ${c.email ?? "Email non spécifié"}";
+      }).toList();
 
-    final infosPromotions = promotions.map((promo) {
-      return """ID: ${promo.id} | ${promo.nom} (${promo.type}) | Réduction: ${promo.tauxReduction * 100}% | Période: ${promo.dateDebut.toIso8601String().split('T')[0]} → ${promo.dateFin.toIso8601String().split('T')[0]} | Condition: ${promo.produitConditionNom ?? "Aucune"} (${promo.quantiteCondition ?? "N/A"}) | Offre: ${promo.produitOffertNom ?? "Aucune"} (${promo.quantiteOfferte ?? "N/A"})""";
-    }).toList();
+      final infosPromotions = promotions.map((promo) {
+        return """ID: ${promo.id} | ${promo.nom} (${promo.type}) | Réduction: ${promo.tauxReduction * 100}% | Période: ${promo.dateDebut.toIso8601String().split('T')[0]} → ${promo.dateFin.toIso8601String().split('T')[0]} | Condition: ${promo.produitConditionNom ?? "Aucune"} (${promo.quantiteCondition ?? "N/A"}) | Offre: ${promo.produitOffertNom ?? "Aucune"} (${promo.quantiteOfferte ?? "N/A"})""";
+      }).toList();
 
-    final infosRoutes = routes.map((r) {
-      final vendeurs = r.vendeurs.map((v) => v.nomUtilisateur).join(", ");
-      final clientsRoute = r.clients.map((c) => c.nom).join(", ");
-      return "ID: ${r.id} | ${r.nom} | Vendeurs: ${vendeurs.isNotEmpty ? vendeurs : "Aucun"} | Clients: ${clientsRoute.isNotEmpty ? clientsRoute : "Aucun"}";
-    }).toList();
+      final infosRoutes = routes.map((r) {
+        final vendeurs = r.vendeurs.map((v) => v.nomUtilisateur).join(", ");
+        final clientsRoute = r.clients.map((c) => c.nom).join(", ");
+        return "ID: ${r.id} | ${r.nom} | Vendeurs: ${vendeurs.isNotEmpty ? vendeurs : "Aucun"} | Clients: ${clientsRoute.isNotEmpty ? clientsRoute : "Aucun"}";
+      }).toList();
 
-    final infosCommandes = commandes.map((cmd) {
-      final lignesDescription = cmd.lignes.map((ligne) {
-        return "  - ${ligne.produit.nom} × ${ligne.quantite} = ${ligne.produit.prixUnitaire * ligne.quantite} DH${ligne.produitOffert ? " (OFFERT)" : ""}";
-      }).join("\n");
+      final infosCommandes = commandes.map((cmd) {
+        final lignesDescription = cmd.lignes.map((ligne) {
+          return "  - ${ligne.produit.nom} × ${ligne.quantite} = ${ligne.produit.prixUnitaire * ligne.quantite} DH${ligne.produitOffert ? " (OFFERT)" : ""}";
+        }).join("\n");
 
-      return """ID: ${cmd.id} | Client: ${cmd.clientNom} | Créée: ${cmd.dateCreation} | Livraison: ${cmd.dateLivraison} | Total: ${cmd.montantTotal} DH | Avant remise: ${cmd.montantTotalAvantRemise} DH | Réduction: ${cmd.montantReduction} DH | Statut: ${cmd.statut} | Promotions: ${cmd.promotionsAppliquees.map((p) => p.nom).join(", ")}
+        return """ID: ${cmd.id} | Client: ${cmd.clientNom} | Créée: ${cmd.dateCreation} | Livraison: ${cmd.dateLivraison} | Total: ${cmd.montantTotal} DH | Avant remise: ${cmd.montantTotalAvantRemise} DH | Réduction: ${cmd.montantReduction} DH | Statut: ${cmd.statut} | Promotions: ${cmd.promotionsAppliquees.map((p) => p.nom).join(", ")}
 Produits:
 $lignesDescription""";
-    }).toList();
+      }).toList();
 
-    final infosUtilisateurs = utilisateurs.map((u) {
-      return "ID: ${u.id} | ${u.nomUtilisateur} | Rôle: ${u.role} | Téléphone: ${u.telephone ?? "Non spécifié"} | Email: ${u.email ?? "Non spécifié"} | Superviseur: ${u.superviseurNom ?? "Aucun"}";
-    }).toList();
+      final infosUtilisateurs = utilisateurs.map((u) {
+        return "ID: ${u.id} | ${u.nomUtilisateur} | Rôle: ${u.role} | Téléphone: ${u.telephone ?? "Non spécifié"} | Email: ${u.email ?? "Non spécifié"} | Superviseur: ${u.superviseurNom ?? "Aucun"}";
+      }).toList();
 
-    // ✅ Envoi à l'IA avec message corrigé
-    final botResponse = await _sendToIA(
-      correctedMessage, // ⬅️ on utilise le message corrigé
-      infosProduits,
-      infosClients,
-      infosCommandes,
-      infosRoutes,
-      infosPromotions,
-      infosUtilisateurs,
-    );
+      // ✅ Envoi à l'IA avec message corrigé
+      final botResponse = await _sendToIA(
+        correctedMessage, // ⬅️ on utilise le message corrigé
+        infosProduits,
+        infosClients,
+        infosCommandes,
+        infosRoutes,
+        infosPromotions,
+        infosUtilisateurs,
+      );
 
-    setState(() {
-      _messages.add(_ChatMessage(
-        sender: "Bot",
-        message: botResponse,
-        timestamp: DateTime.now(),
-      ));
-      _isLoading = false;
-    });
-  } catch (e) {
-    setState(() {
-      _messages.add(_ChatMessage(
-        sender: "Bot",
-        message: "❌ **Erreur lors de la récupération des données**\n\n```\n$e\n```",
-        timestamp: DateTime.now(),
-      ));
-      _isLoading = false;
-    });
+      setState(() {
+        _messages.add(_ChatMessage(
+          sender: "Bot",
+          message: botResponse,
+          timestamp: DateTime.now(),
+        ));
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _messages.add(_ChatMessage(
+          sender: "Bot",
+          message:
+              "❌ **Erreur lors de la récupération des données**\n\n```\n$e\n```",
+          timestamp: DateTime.now(),
+        ));
+        _isLoading = false;
+      });
+    }
+
+    _controller.clear();
+    _scrollToBottom();
   }
-
-  _controller.clear();
-  _scrollToBottom();
-}
 
 // Dictionnaire d'auto-formation (mémorise les corrections fréquentes)
-final Map<String, String> _autoLearnCorrections = {};
+  final Map<String, String> _autoLearnCorrections = {};
 
-Future<String> _sendToIA(
-  String userMessage,
-  List<String> produits,
-  List<String> clients,
-  List<String> commandes,
-  List<String> routes,
-  List<String> promotions,
-  List<String> utilisateurs,
-) async {
-  if (_apiKey.isEmpty) {
-    return "❌ **Configuration manquante**\n\nClé API non définie.";
-  }
+  Future<String> _sendToIA(
+    String userMessage,
+    List<String> produits,
+    List<String> clients,
+    List<String> commandes,
+    List<String> routes,
+    List<String> promotions,
+    List<String> utilisateurs,
+  ) async {
+    if (_apiKey.isEmpty) {
+      return "❌ **Configuration manquante**\n\nClé API non définie.";
+    }
 
-  /// 1. Correction automatique AVANT d'envoyer à l'IA
-  final correctedMessage = _autoCorrectMessage(userMessage, produits, clients, commandes);
+    /// 1. Correction automatique AVANT d'envoyer à l'IA
+    final correctedMessage =
+        _autoCorrectMessage(userMessage, produits, clients, commandes);
+    final siteContent = await WebContentService.fetchContentFromDislogroup();
 
-  /// 2. Analyse du message (avec correction)
-  final messageAnalysis = _analyzeMessage(correctedMessage);
+    /// 2. Analyse du message (avec correction)
+    final messageAnalysis = _analyzeMessage(correctedMessage);
 
-  /// 3. Prompt avec règles strictes et mention correction
-  final systemPrompt = """Tu es un assistant commercial expert qui répond **exclusivement en Markdown structuré**.
-
+    /// 3. Prompt avec règles strictes et mention correction
+    final systemPrompt =
+        """Tu es un assistant commercial expert qui répond **exclusivement en Markdown structuré**.
+## 🌐 CONTENU DU SITE DISLOGROUP.COM
+$siteContent
 ## 📊 BASE DE DONNÉES DISPONIBLE
 ### 🛒 PRODUITS (${produits.length})
 ${produits.take(50).join('\n')}
@@ -527,7 +539,7 @@ ${utilisateurs.join('\\n')}
 3. Si la question porte sur un produit, ne donne que les informations sur ce produit, rien d'autre.
 4. Si une correction orthographique ou de terme a été appliquée, indique-la en haut de ta réponse sous cette forme :
 
-> 🔍 Recherche pour "${userMessage}" → Correction automatique : "**${correctedMessage}**"
+> 🔍 Recherche pour "\${userMessage}" → Correction automatique : "**\${correctedMessage}**"
 
 5. Ne jamais inventer ou supposer des données.
 6. En cas d'absence totale d'information, affiche un message clair sans inventer.
@@ -540,100 +552,111 @@ ${utilisateurs.join('\\n')}
 **Question corrigée :** $correctedMessage  
 **Analyse détectée :** ${messageAnalysis['type']} - ${messageAnalysis['intent']}
 
-Réponds maintenant selon ces règles."""; 
+Réponds maintenant selon ces règles.""";
 
-  try {
-    final response = await http.post(
-      Uri.parse("https://openrouter.ai/api/v1/chat/completions"),
-      headers: {
-        "Authorization": "Bearer $_apiKey",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: jsonEncode({
-        "model": "mistralai/mistral-7b-instruct",
-        "messages": [
-          {"role": "system", "content": systemPrompt},
-          {"role": "user", "content": correctedMessage},
-        ],
-        "temperature": 0.3,
-        "max_tokens": 1000,
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse("https://openrouter.ai/api/v1/chat/completions"),
+        headers: {
+          "Authorization": "Bearer $_apiKey",
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({
+          "model": "mistralai/mistral-7b-instruct",
+          "messages": [
+            {"role": "system", "content": systemPrompt},
+            {"role": "user", "content": correctedMessage},
+          ],
+          "temperature": 0.3,
+          "max_tokens": 1000,
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
-      final message = data["choices"]?[0]?["message"]?["content"];
-      return message?.trim() ?? "❌ **Aucune réponse générée**\n\nL'IA n'a pas pu traiter votre demande.";
-    } else {
-      return "❌ **Erreur de communication**\n\n**Code :** ${response.statusCode}\n**Message :** ${response.reasonPhrase}\n\n```\n${response.body}\n```";
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final message = data["choices"]?[0]?["message"]?["content"];
+        return message?.trim() ??
+            "❌ **Aucune réponse générée**\n\nL'IA n'a pas pu traiter votre demande.";
+      } else {
+        return "❌ **Erreur de communication**\n\n**Code :** ${response.statusCode}\n**Message :** ${response.reasonPhrase}\n\n```\n${response.body}\n```";
+      }
+    } catch (e) {
+      return "❌ **Erreur technique**\n\n```\n$e\n```\n\n> Vérifiez votre connexion internet et réessayez.";
     }
-  } catch (e) {
-    return "❌ **Erreur technique**\n\n```\n$e\n```\n\n> Vérifiez votre connexion internet et réessayez.";
-  }
-}
-
-String _autoCorrectMessage(String message, List<String> produits, List<String> clients, List<String> commandes) {
-  final lowerMsg = message.toLowerCase();
-
-  // ✅ Si une correction a déjà été apprise (auto-formation)
-  if (_autoLearnCorrections.containsKey(lowerMsg)) {
-    return _autoLearnCorrections[lowerMsg]!;
   }
 
-  // ✅ Création d'un dictionnaire de recherche (produits + clients + commandes)
-  final allTerms = [
-    ...produits.map((p) => p.toLowerCase()),
-    ...clients.map((c) => c.toLowerCase()),
-    ...commandes.map((cmd) => cmd.toLowerCase())
-  ];
+  String _autoCorrectMessage(String message, List<String> produits,
+      List<String> clients, List<String> commandes) {
+    final lowerMsg = message.toLowerCase();
 
-  // ✅ Recherche du terme le plus proche
-  final bestMatch = lowerMsg.bestMatch(allTerms);
-  if (bestMatch.bestMatch.rating! > 0.6) {
-    final corrected = bestMatch.bestMatch.target!;
-    _autoLearnCorrections[lowerMsg] = corrected; // ✅ Apprentissage automatique
-    return corrected;
+    // ✅ Si une correction a déjà été apprise (auto-formation)
+    if (_autoLearnCorrections.containsKey(lowerMsg)) {
+      return _autoLearnCorrections[lowerMsg]!;
+    }
+
+    // ✅ Création d'un dictionnaire de recherche (produits + clients + commandes)
+    final allTerms = [
+      ...produits.map((p) => p.toLowerCase()),
+      ...clients.map((c) => c.toLowerCase()),
+      ...commandes.map((cmd) => cmd.toLowerCase())
+    ];
+
+    // ✅ Recherche du terme le plus proche
+    final bestMatch = lowerMsg.bestMatch(allTerms);
+    if (bestMatch.bestMatch.rating! > 0.6) {
+      final corrected = bestMatch.bestMatch.target!;
+      _autoLearnCorrections[lowerMsg] =
+          corrected; // ✅ Apprentissage automatique
+      return corrected;
+    }
+
+    return message; // ✅ Pas de correction trouvée
   }
-
-  return message; // ✅ Pas de correction trouvée
-}
 
   Map<String, String> _analyzeMessage(String message) {
     final lowerMessage = message.toLowerCase();
-    
+
     // Détection du type de question
-    if (lowerMessage.contains(RegExp(r'\b(qui est|infos? sur|détails? de)\b'))) {
-      return {'type': 'identity', 'intent': 'Information complète sur une entité'};
+    if (lowerMessage
+        .contains(RegExp(r'\b(qui est|infos? sur|détails? de)\b'))) {
+      return {
+        'type': 'identity',
+        'intent': 'Information complète sur une entité'
+      };
     }
-    
-    if (lowerMessage.contains(RegExp(r'\b(email|téléphone|adresse|contact)\b'))) {
+
+    if (lowerMessage
+        .contains(RegExp(r'\b(email|téléphone|adresse|contact)\b'))) {
       return {'type': 'contact', 'intent': 'Information de contact spécifique'};
     }
-    
+
     if (lowerMessage.contains(RegExp(r'\b(prix|coût|tarif|montant)\b'))) {
       return {'type': 'price', 'intent': 'Information tarifaire'};
     }
-    
+
     if (lowerMessage.contains(RegExp(r'\b(commande|cmd|commandes)\b'))) {
       return {'type': 'order', 'intent': 'Information sur les commandes'};
     }
-    
-    if (lowerMessage.contains(RegExp(r'\b(promotion|promo|réduction|offre)\b'))) {
+
+    if (lowerMessage
+        .contains(RegExp(r'\b(promotion|promo|réduction|offre)\b'))) {
       return {'type': 'promotion', 'intent': 'Information sur les promotions'};
     }
-    
+
     if (lowerMessage.contains(RegExp(r'\b(tous les|toutes les|liste)\b'))) {
       return {'type': 'list', 'intent': 'Listage d\'éléments'};
     }
-    
-    if (lowerMessage.contains(RegExp(r'\b(combien|nombre|total|statistique)\b'))) {
+
+    if (lowerMessage
+        .contains(RegExp(r'\b(combien|nombre|total|statistique)\b'))) {
       return {'type': 'statistics', 'intent': 'Demande statistique'};
     }
-    
+
     return {'type': 'general', 'intent': 'Question générale', 'query': message};
   }
 }
+
 int levenshteinDistance(String s, String t) {
   if (s == t) return 0;
   if (s.isEmpty) return t.length;
@@ -716,7 +739,7 @@ class _ChatMessage {
   final String sender;
   final String message;
   final DateTime timestamp;
-  
+
   _ChatMessage({
     required this.sender,
     required this.message,

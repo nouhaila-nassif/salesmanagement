@@ -180,7 +180,7 @@ class _CommandeFormPageState extends State<CommandeFormPage> {
           .map((p) => p.id)
           .whereType<int>()
           .toSet()
-          .toList(),
+          .toList(), clientType: '',
     );
     try {
       await CommandeService.createCommande(commande);
