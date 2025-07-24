@@ -142,6 +142,45 @@ public class RouteService {
         route.getVendeurs().clear();
         routeRepository.save(route);
     }
+    public String genererContexteRoutes() {
+        List<Route> routes = routeRepository.findAll();
+
+        if (routes.isEmpty()) return "Aucune route trouvée.";
+
+        StringBuilder contexte = new StringBuilder("Liste des routes :\n");
+
+        for (Route route : routes) {
+            Long id = route.getId();
+            String nom = route.getNom() != null ? route.getNom() : "Nom inconnu";
+
+
+            // ✅ Clients associés
+            int nbClients = (route.getClients() != null) ? route.getClients().size() : 0;
+            String clients = (nbClients > 0)
+                    ? route.getClients().stream()
+                    .map(Client::getNom)
+                    .reduce((c1, c2) -> c1 + ", " + c2)
+                    .orElse("")
+                    : "Aucun client";
+
+            // ✅ Vendeurs associés
+            int nbVendeurs = (route.getVendeurs() != null) ? route.getVendeurs().size() : 0;
+            String vendeurs = (nbVendeurs > 0)
+                    ? route.getVendeurs().stream()
+                    .map(Utilisateur::getNomUtilisateur)
+                    .reduce((v1, v2) -> v1 + ", " + v2)
+                    .orElse("")
+                    : "Aucun vendeur";
+
+            contexte.append("- [ID: ").append(id).append("] ")
+                    .append(nom)
+                    .append(" | Clients (").append(nbClients).append(") : ").append(clients)
+                    .append(" | Vendeurs (").append(nbVendeurs).append(") : ").append(vendeurs)
+                    .append("\n");
+        }
+
+        return contexte.toString();
+    }
 
     @Transactional
     public void dissocierTousLesClients(Long routeId) {

@@ -35,10 +35,44 @@ public class CommandeService {
     private ProduitRepository produitRepository;
     @Autowired
     private PromotionService promotionService;
+    public String genererContexteCommandes() {
+        List<Commande> commandes = commandeRepository.findAll();
 
-    /**
-     * Récupérer une commande par son ID.
-     */
+        if (commandes.isEmpty()) return "Aucune commande trouvée.";
+
+        StringBuilder contexte = new StringBuilder("Historique des commandes :\n");
+
+        for (Commande cmd : commandes) {
+            if (cmd.getClient() == null || cmd.getLignes() == null || cmd.getLignes().isEmpty()) continue;
+
+            Long idCommande = cmd.getId();
+            String clientNom = cmd.getClient().getNom();
+            String date = cmd.getDateCreation() != null ? cmd.getDateCreation().toString() : "Date inconnue";
+            String montant = cmd.getMontantTotal() != null ? String.format("%.2f DH", cmd.getMontantTotal()) : "Montant inconnu";
+
+            // ✅ Récupération du statut
+            String statut = cmd.getStatut() != null ? cmd.getStatut().name() : "Statut inconnu";
+            // Si c'est une String directement : cmd.getStatut()
+
+            String produits = cmd.getLignes().stream()
+                    .map(ligne -> {
+                        String nomProduit = ligne.getProduit() != null ? ligne.getProduit().getNom() : "Produit inconnu";
+                        return nomProduit + " x" + ligne.getQuantite();
+                    })
+                    .collect(Collectors.joining(", "));
+
+            contexte.append("- [ID: ").append(idCommande).append("] ")
+                    .append(clientNom)
+                    .append(" | Date : ").append(date)
+                    .append(" | Produits : ").append(produits)
+                    .append(" | Total : ").append(montant)
+                    .append(" | ✅ Statut : ").append(statut) // ✅ Ajout ici
+                    .append("\n");
+        }
+
+        return contexte.toString();
+    }
+
     public Commande getCommandeById(Long id) {
         return commandeRepository.findById(id).orElse(null);
     }
@@ -51,21 +85,6 @@ public class CommandeService {
         commandeRepository.save(commande);
     }
 
-    private boolean isPromotionApplicable(Commande commande, Promotion promotion) {
-        // Vérifier si la commande contient le produit condition
-        if (promotion.getProduitCondition() != null) {
-            String produitConditionNom = promotion.getProduitCondition().getNom();
-            Integer quantiteRequise = promotion.getQuantiteCondition();
-
-            int quantiteTotale = commande.getLignes().stream()
-                    .filter(ligne -> ligne.getProduit().getNom().equals(produitConditionNom))
-                    .mapToInt(LigneCommande::getQuantite)
-                    .sum();
-
-            return quantiteTotale >= quantiteRequise;
-        }
-        return true;
-    }
 
 
 // 2. CORRECTION : Méthode creerCommande avec debug détaillé

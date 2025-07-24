@@ -62,6 +62,42 @@ public class VisiteService {
         visite.setDatePlanifiee(date);
         return visiteRepository.save(visite);
     }
+    public String genererContexteVisites() {
+        List<Visite> visites = visiteRepository.findAll();
+
+        if (visites.isEmpty()) {
+            return "Aucune visite planifiée ou réalisée.";
+        }
+
+        StringBuilder contexte = new StringBuilder("Historique des visites :\n");
+
+        for (Visite visite : visites) {
+            Long visiteId = visite.getId();
+            String clientNom = (visite.getClient() != null) ? visite.getClient().getNom() : "Client inconnu";
+            String vendeurNom = (visite.getVendeur() != null) ? visite.getVendeur().getNomUtilisateur() : "Non attribué";
+            String typeClient = (visite.getClient() != null && visite.getClient().getType() != null)
+                    ? visite.getClient().getType().name()
+                    : "Type inconnu";
+            String datePlanifiee = (visite.getDatePlanifiee() != null)
+                    ? visite.getDatePlanifiee().toString()
+                    : "Date non définie";
+            String dateReelle = (visite.getDateReelle() != null)
+                    ? visite.getDateReelle().toString()
+                    : "Non encore réalisée";
+            String statut = (visite.getStatut() != null) ? visite.getStatut().name() : "Statut inconnu";
+
+            contexte.append("- [ID: ").append(visiteId)
+                    .append("] Client: ").append(clientNom)
+                    .append(" | Vendeur: ").append(vendeurNom)
+                    .append(" | Type: ").append(typeClient)
+                    .append(" | Date planifiée: ").append(datePlanifiee)
+                    .append(" | Date réelle: ").append(dateReelle)
+                    .append(" | Statut: ").append(statut)
+                    .append("\n");
+        }
+
+        return contexte.toString();
+    }
 
     // Nouvelle méthode optimisée pour votre TypeClient
     @Transactional

@@ -25,9 +25,11 @@ public class PreVendeurService {
     private PreVendeurRepository preVendeurRepository;
     @Autowired
     private PasswordEncoder encoder;
+
     public List<PreVendeur> getAllPreVendeursWithClients() {
         return preVendeurRepository.findAllWithClients();
     }
+
     public PreVendeur createPreVendeur(Utilisateur userRequesting, String username, String password, String telephone, String email) {
         if (!(userRequesting instanceof Administrateur)) {
             throw new RuntimeException("Seul un administrateur peut créer un pré-vendeur.");

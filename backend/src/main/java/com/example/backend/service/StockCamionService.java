@@ -175,6 +175,41 @@ public class StockCamionService {
         // Sauvegarder la modification
         stockCamionRepository.save(stock);
     }
+    public String genererContexteStockCamions() {
+        List<StockCamion> stocks = stockCamionRepository.findAll();
+
+        if (stocks.isEmpty()) {
+            return "Aucun stock camion trouvé.";
+        }
+
+        StringBuilder contexte = new StringBuilder("État actuel des stocks camions :\n");
+
+        for (StockCamion stock : stocks) {
+            Long stockId = stock.getId();
+            String chauffeurNom = (stock.getChauffeur() != null)
+                    ? stock.getChauffeur().getNomUtilisateur()
+                    : "Chauffeur inconnu";
+
+            // ✅ Nombre total de produits et détail par produit
+            Map<Produit, Integer> niveaux = stock.getNiveauxStock();
+            int totalProduits = niveaux.values().stream().mapToInt(Integer::intValue).sum();
+
+            String produitsDetails = niveaux.isEmpty()
+                    ? "Aucun produit"
+                    : niveaux.entrySet().stream()
+                    .map(e -> e.getKey().getNom() + " x" + e.getValue())
+                    .reduce((p1, p2) -> p1 + ", " + p2)
+                    .orElse("");
+
+            contexte.append("- [Stock ID: ").append(stockId).append("] ")
+                    .append("Chauffeur : ").append(chauffeurNom)
+                    .append(" | Produits (").append(totalProduits).append(") : ")
+                    .append(produitsDetails)
+                    .append("\n");
+        }
+
+        return contexte.toString();
+    }
 
     // ✅ Déduire du stock après vente (automatique pour VendeurDirect)
     public void deduireStock(Long produitId, int quantite) {

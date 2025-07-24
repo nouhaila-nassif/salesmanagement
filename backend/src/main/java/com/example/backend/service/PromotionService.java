@@ -137,9 +137,53 @@ public class PromotionService {
                 .orElseThrow(() -> new RuntimeException("Promotion non trouvée"));
     }
 
-//    public BigDecimal calculerReductionTotale(Commande commande, Set<Promotion> promotions) {
-//        return promotionCalculator.calculerReductionTotale(commande, promotions);
-//    }
+    public String genererContextePromotions() {
+        List<Promotion> promotions = promotionRepository.findAll();
+
+        if (promotions.isEmpty()) return "Aucune promotion en cours.";
+
+        StringBuilder contexte = new StringBuilder("Liste des promotions en cours :\n");
+
+        for (Promotion promo : promotions) {
+            String nom = promo.getNom() != null ? promo.getNom() : "Nom inconnu";
+            String type = promo.getType() != null ? promo.getType().name() : "Type inconnu";
+            String dateDebut = promo.getDateDebut() != null ? promo.getDateDebut().toString() : "Date début inconnue";
+            String dateFin = promo.getDateFin() != null ? promo.getDateFin().toString() : "Date fin inconnue";
+            String taux = promo.getTauxReduction() != null ? promo.getTauxReduction() + "%" : "Pas de réduction";
+            String categorie = (promo.getCategorie() != null) ? promo.getCategorie().getNom() : "Sans catégorie";
+
+            // ✅ Produits liés à la promotion
+            String produits = promo.getProduits() != null && !promo.getProduits().isEmpty()
+                    ? promo.getProduits().stream()
+                    .map(Produit::getNom)
+                    .reduce((p1, p2) -> p1 + ", " + p2)
+                    .orElse("Aucun produit")
+                    : "Aucun produit";
+
+            // ✅ Détails spécifiques pour le type CADEAU
+            String detailsCadeau = "";
+            if (promo.getType() == TypePromotion.CADEAU) {
+                String produitCond = promo.getProduitCondition() != null ? promo.getProduitCondition().getNom() : "Inconnu";
+                String qteCond = promo.getQuantiteCondition() != null ? promo.getQuantiteCondition().toString() : "?";
+                String produitOff = promo.getProduitOffert() != null ? promo.getProduitOffert().getNom() : "Inconnu";
+                String qteOff = promo.getQuantiteOfferte() != null ? promo.getQuantiteOfferte().toString() : "?";
+                detailsCadeau = " | 🎁 Offre : Achetez " + qteCond + " " + produitCond + " => Recevez " + qteOff + " " + produitOff;
+            }
+
+            contexte.append("- [ID: ").append(promo.getId())
+                    .append("] ").append(nom)
+                    .append(" | Type : ").append(type)
+                    .append(" | Catégorie : ").append(categorie)
+                    .append(" | Dates : ").append(dateDebut).append(" → ").append(dateFin)
+                    .append(" | Taux : ").append(taux)
+                    .append(" | Produits : ").append(produits)
+                    .append(detailsCadeau)
+                    .append("\n");
+        }
+
+        return contexte.toString();
+    }
+
 
     public Promotion updatePromotion(Long id, Promotion newData) {
         Promotion existing = getPromotionById(id);

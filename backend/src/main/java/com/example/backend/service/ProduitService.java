@@ -29,36 +29,41 @@ public class ProduitService {
     public List<Produit> getAllProduits() {
         return produitRepository.findAll();
     }
-    @Autowired
-    private NlpService nlpService;
-    public double cosineSimilarity(List<Double> v1, List<Double> v2) {
-        double dot = 0, normA = 0, normB = 0;
-        for (int i = 0; i < v1.size(); i++) {
-            dot += v1.get(i) * v2.get(i);
-            normA += v1.get(i) * v1.get(i);
-            normB += v2.get(i) * v2.get(i);
-        }
-        return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-    }
 
-    public List<Produit> searchBySemanticSimilarity(String query) {
-        List<Double> queryEmbedding = nlpService.getEmbedding(query);
-        List<Produit> produits = produitRepository.findAll();
 
-        return produits.stream()
-                .sorted((p1, p2) -> {
-                    double sim1 = cosineSimilarity(queryEmbedding, p1.getEmbeddingAsList());
-                    double sim2 = cosineSimilarity(queryEmbedding, p2.getEmbeddingAsList());
-                    return Double.compare(sim2, sim1);
-                })
-                .collect(Collectors.toList());
-    }
+
     public List<Promotion> getPromotionsCadeauxParProduit(String nomProduit) {
         return promotionRepository.findPromoCadeauByProduitConditionNom(nomProduit);
     }
     public Produit getProduitById(Long id) {
         return produitRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+    }
+    public String genererContexteProduits() {
+        List<Produit> produits = getAllProduits();
+
+        if (produits.isEmpty()) {
+            return "Aucun produit disponible actuellement.";
+        }
+
+        StringBuilder contexte = new StringBuilder("Voici la liste des produits disponibles :\n");
+        for (Produit p : produits) {
+            contexte.append("- ").append(p.getNom());
+            if (p.getMarque() != null) {
+                contexte.append(" (Marque : ").append(p.getMarque()).append(")");
+            }
+            contexte.append(", Prix : ").append(p.getPrixUnitaire()).append(" DH");
+            if (p.getCategorie() != null) {
+                contexte.append(", Catégorie : ").append(p.getCategorie().getNom());
+            }
+            List<Promotion> promos = getPromotionsCadeauxParProduit(p.getNom());
+            if (!promos.isEmpty()) {
+                contexte.append(", Promotions cadeaux : ");
+                contexte.append(promos.stream().map(Promotion::getNom).collect(Collectors.joining(", ")));
+            }
+            contexte.append("\n");
+        }
+        return contexte.toString();
     }
 
     public Produit updateProduit(Long id, Produit newData) {

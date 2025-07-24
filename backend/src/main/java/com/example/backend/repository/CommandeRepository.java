@@ -16,6 +16,8 @@ public interface CommandeRepository extends JpaRepository<Commande, Long> {
     @Transactional
     @Query("UPDATE Commande c SET c.vendeur = null WHERE c.vendeur.id = :vendeurId")
     void dissocierCommandesDuVendeur(@Param("vendeurId") Long vendeurId);
+    // Retourne les 3 dernières commandes d'un client, triées par date décroissante
+    List<Commande> findTop3ByClientIdOrderByDateCreationDesc(Long clientId);
 
     // Trouver toutes les commandes d’un vendeur spécifique
     List<Commande> findByVendeurId(Long vendeurId);

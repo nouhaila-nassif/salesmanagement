@@ -57,6 +57,73 @@ public class ClientService {
         return clientRepository.findClientsByVendeurId(vendeurId);
     }
 
+    public String genererContexteClients() {
+        List<Client> clients = getAllClientsWithDetails();
+
+        if (clients.isEmpty()) {
+            return "Aucun client disponible actuellement.";
+        }
+
+        StringBuilder contexte = new StringBuilder("Voici la liste des clients et leurs informations :\n");
+
+        for (Client client : clients) {
+            // ✅ Ajout de l'ID du client
+            contexte.append("- [ID: ").append(client.getId()).append("] ")
+                    .append("Client : ").append(client.getNom());
+
+            if (client.getType() != null) {
+                contexte.append(" (Type : ").append(client.getType()).append(")");
+            }
+            if (client.getTelephone() != null) {
+                contexte.append(", Téléphone : ").append(client.getTelephone());
+            }
+            if (client.getEmail() != null) {
+                contexte.append(", Email : ").append(client.getEmail());
+            }
+            if (client.getAdresse() != null) {
+                contexte.append(", Adresse : ").append(client.getAdresse());
+            }
+            if (client.getDerniereVisite() != null) {
+                contexte.append(", Dernière visite : ").append(client.getDerniereVisite().toString());
+            }
+
+            // ✅ Routes associées
+            if (client.getRoutes() != null && !client.getRoutes().isEmpty()) {
+                String routes = client.getRoutes().stream()
+                        .map(Route::getNom)
+                        .collect(Collectors.joining(", "));
+                contexte.append(", Routes : ").append(routes);
+            }
+
+            // ✅ Commandes récentes (3 dernières)
+            List<Commande> commandes = commandeRepository.findTop3ByClientIdOrderByDateCreationDesc(client.getId());
+            if (!commandes.isEmpty()) {
+                contexte.append(", Commandes récentes : ");
+                String commandesStr = commandes.stream()
+                        .map(cmd -> {
+                            String date = cmd.getDateCreation() != null ? cmd.getDateCreation().toString() : "Date inconnue";
+                            String montant = cmd.getMontantTotal() != null ? String.format("%.2f DH", cmd.getMontantTotal()) : "Montant inconnu";
+                            return "[" + date + " : " + montant + "]";
+                        })
+                        .collect(Collectors.joining(", "));
+                contexte.append(commandesStr);
+            }
+
+            // ✅ Visites récentes (2 dernières)
+            List<Visite> visites = visiteRepository.findTop2ByClientIdOrderByDatePlanifieeDesc(client.getId());
+            if (!visites.isEmpty()) {
+                contexte.append(", Visites récentes : ");
+                String visitesStr = visites.stream()
+                        .map(visite -> visite.getDatePlanifiee() != null ? visite.getDatePlanifiee().toString() : "Date inconnue")
+                        .collect(Collectors.joining(", "));
+                contexte.append(visitesStr);
+            }
+
+            contexte.append("\n");
+        }
+
+        return contexte.toString();
+    }
 
     public List<Client> getAllClientsWithDetails() {
         return clientRepository.findAllWithDetails();

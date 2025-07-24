@@ -20,17 +20,7 @@ public class Produit {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(columnDefinition = "NVARCHAR(MAX)")
-    private String embedding;
-
-    public List<Double> getEmbeddingAsList() {
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            return mapper.readValue(embedding, new TypeReference<List<Double>>() {});
-        } catch (Exception e) {
-            return new ArrayList<>();
-        }
-    }
+  
 
     private String nom;
     private String description;

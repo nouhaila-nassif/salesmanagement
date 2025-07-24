@@ -25,6 +25,7 @@ public class RouteManagementService {
 
     @Autowired
     private UtilisateurRepository utilisateurRepository;
+
     public void assignerUtilisateurARoute(Long utilisateurId, Long routeId) {
         Utilisateur utilisateur = utilisateurRepository.findById(utilisateurId)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));

@@ -265,6 +265,38 @@ private RouteRepository routeRepository;
 
 
 
+    public String genererContexteUtilisateurs() {
+        List<Utilisateur> utilisateurs = utilisateurRepository.findAll();
+
+        if (utilisateurs.isEmpty()) {
+            return "Aucun utilisateur trouvé.";
+        }
+
+        StringBuilder contexte = new StringBuilder("Liste des utilisateurs :\n");
+
+        for (Utilisateur u : utilisateurs) {
+            String role = u.getRole() != null ? u.getRole() : "Rôle inconnu";
+            String telephone = u.getTelephone() != null ? u.getTelephone() : "Téléphone inconnu";
+            String email = u.getEmail() != null ? u.getEmail() : "Email inconnu";
+
+            contexte.append("- [ID: ").append(u.getId()).append("] ")
+                    .append(u.getNomUtilisateur())
+                    .append(" | Rôle : ").append(role)
+                    .append(" | Téléphone : ").append(telephone)
+                    .append(" | Email : ").append(email);
+
+            // ✅ Ajout du superviseur s'il existe
+            if (u.getSuperviseur() != null) {
+                contexte.append(" | Superviseur : ")
+                        .append(u.getSuperviseur().getNomUtilisateur())
+                        .append(" (ID: ").append(u.getSuperviseur().getId()).append(")");
+            }
+
+            contexte.append("\n");
+        }
+
+        return contexte.toString();
+    }
 
     public Utilisateur modifierUtilisateur(Long id, UpdateUtilisateurRequest request) {
         Utilisateur existant = utilisateurRepo.findById(id)

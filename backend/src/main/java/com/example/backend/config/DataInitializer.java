@@ -18,7 +18,6 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        System.out.println("👉 Vérification et insertion des catégories...");
 
         insertIfNotExists("Boissons", "Toutes les boissons disponibles");
         insertIfNotExists("Produits frais", "Fruits, légumes, produits laitiers...");
@@ -26,7 +25,6 @@ public class DataInitializer implements CommandLineRunner {
         insertIfNotExists("Hygiène et soins", "Soins du corps, savons, shampoings...");
         insertIfNotExists("Snacks", "Produits à grignoter");
 
-        System.out.println("✅ Insertion terminée !");
     }
 
     private void insertIfNotExists(String nom, String description) {
@@ -35,9 +33,7 @@ public class DataInitializer implements CommandLineRunner {
             cat.setNom(nom);
             cat.setDescription(description);
             catégorieProduitRepository.save(cat);
-            System.out.println("✅ Catégorie ajoutée : " + nom);
         } else {
-            System.out.println("ℹ️ Catégorie déjà existante : " + nom);
         }
     }
 

@@ -12,6 +12,8 @@ import java.util.Optional;
 @Repository
 public interface ProduitRepository extends JpaRepository<Produit, Long> {
     Optional<Produit> findByNom(String nom);
+    @Query("SELECT p FROM Produit p WHERE LOWER(TRIM(p.nom)) = LOWER(TRIM(:nom))")
+    Optional<Produit> findByNomIgnoreCaseAndTrimmed(@Param("nom") String nom);
 
     @Query("SELECT p FROM Produit p LEFT JOIN FETCH p.promotions WHERE p.id = :id")
     Optional<Produit> findByIdWithPromotions(@Param("id") Long id);

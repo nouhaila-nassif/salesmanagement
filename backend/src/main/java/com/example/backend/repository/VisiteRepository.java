@@ -18,6 +18,8 @@ public interface VisiteRepository extends JpaRepository<Visite, Long> {
 
     // Dernière visite réelle effectuée pour un client
     Optional<Visite> findTopByClientOrderByDateReelleDesc(Client client);
+    // Retourne les 2 dernières visites d'un client, triées par date décroissante
+    List<Visite> findTop2ByClientIdOrderByDatePlanifieeDesc(Long clientId);
 
     // Vérifie si une visite est déjà planifiée pour un client autour d’une date
     boolean existsByClientAndDatePlanifieeBetween(Client client, LocalDate startDate, LocalDate endDate);
