@@ -15,9 +15,11 @@ import '../views/admin/gestion_vendeurs_page.dart';
 import '../views/stock_page.dart';
 import '../views/visites/calendrier_visites_page.dart';
 import '../widgets/chatboot.dart';
+import '../widgets/ia_chat_page.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
   '/': (context) => const LoginPage(),
+  '/ia': (context) => IAChatPage(),
  '/commande/edit': (context) {
   final settings = ModalRoute.of(context)!.settings;
   final args = settings.arguments as Map<String, dynamic>?;
@@ -55,10 +57,10 @@ final Map<String, WidgetBuilder> appRoutes = {
   final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     return HomePage(
-      userRole: args?['userRole'] ?? '',
-      userName: args?['userName'] ?? '',
-      onLogout: args?['onLogout'] ?? () {},
-      onNavigate: args?['onNavigate'] ??
+      userRole: args['userRole'] ?? '',
+      userName: args['userName'] ?? '',
+      onLogout: args['onLogout'] ?? () {},
+      onNavigate: args['onNavigate'] ??
           (route, {arguments}) {}, // Adapté pour matcher le type
     );
   },
@@ -70,10 +72,10 @@ final Map<String, WidgetBuilder> appRoutes = {
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     return CommandeFormPage(
-          userRole: args?['userRole'] ?? '',
-      userName: args?['userName'] ?? '',
-      onLogout: args?['onLogout'] ?? () {},
-      onNavigate: args?['onNavigate'] ??
+          userRole: args['userRole'] ?? '',
+      userName: args['userName'] ?? '',
+      onLogout: args['onLogout'] ?? () {},
+      onNavigate: args['onNavigate'] ??
           (route, {arguments}) {}, // Adapté pour matcher le type
     );
   },
@@ -81,10 +83,10 @@ final Map<String, WidgetBuilder> appRoutes = {
     final args =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     return StockPage(
-       userRole: args?['userRole'] ?? '',
-      userName: args?['userName'] ?? '',
-      onLogout: args?['onLogout'] ?? () {},
-      onNavigate: args?['onNavigate'] ??
+       userRole: args['userRole'] ?? '',
+      userName: args['userName'] ?? '',
+      onLogout: args['onLogout'] ?? () {},
+      onNavigate: args['onNavigate'] ??
           (route, {arguments}) {}, // Adapté pour matcher le type
     );
   },
@@ -139,10 +141,10 @@ final Map<String, WidgetBuilder> appRoutes = {
     
 
   return GestionUtilisateursPage(
-      userRole: args?['userRole'] ?? '',
-      userName: args?['userName'] ?? '',
-      onLogout: args?['onLogout'] ?? () {},
-      onNavigate: args?['onNavigate'] ??
+      userRole: args['userRole'] ?? '',
+      userName: args['userName'] ?? '',
+      onLogout: args['onLogout'] ?? () {},
+      onNavigate: args['onNavigate'] ??
           (route, {arguments}) {}, // Adapté pour matcher le type
     );
 },

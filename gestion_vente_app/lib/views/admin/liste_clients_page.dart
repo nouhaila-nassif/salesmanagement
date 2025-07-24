@@ -13,12 +13,12 @@ class ListeClientsPage extends StatefulWidget {
       onNavigate;
 
   const ListeClientsPage({
-    Key? key,
+    super.key,
     required this.userRole,
     required this.userName,
     required this.onLogout,
     required this.onNavigate,
-  }) : super(key: key);
+  });
 
   @override
   State<ListeClientsPage> createState() => _ListeClientsPageState();
@@ -37,7 +37,7 @@ class _ListeClientsPageState extends State<ListeClientsPage> {
 
   List<Client> allClients = []; // Tous les clients récupérés
   List<Client> filteredClients = []; // Clients filtrés par recherche
-  TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   void _filterClients(String query) {
     setState(() {
       filteredClients = allClients
@@ -87,7 +87,7 @@ class _ListeClientsPageState extends State<ListeClientsPage> {
   }
 
   void _showClientForm({Client? client}) {
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
     String nom = client?.nom ?? '';
     String adresse = client?.adresse ?? '';
     String telephone = client?.telephone ?? '';
@@ -128,7 +128,7 @@ class _ListeClientsPageState extends State<ListeClientsPage> {
             child: StatefulBuilder(
               builder: (context, setModalState) => SingleChildScrollView(
                 child: Form(
-                  key: _formKey,
+                  key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -209,7 +209,7 @@ class _ListeClientsPageState extends State<ListeClientsPage> {
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () async {
-                          if (!_formKey.currentState!.validate()) return;
+                          if (!formKey.currentState!.validate()) return;
                           Navigator.pop(context);
 
                           final newClient = Client(

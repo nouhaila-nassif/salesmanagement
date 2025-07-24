@@ -122,12 +122,12 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
     final formKey = GlobalKey<FormState>();
     final nomController = TextEditingController();
     final marqueController = TextEditingController();
-    final _prixController = TextEditingController();
-    final _descriptionController = TextEditingController();
+    final prixController = TextEditingController();
+    final descriptionController = TextEditingController();
     String? imageBase64;
     int? selectedCategorieId;
 
-    Future<List<CategorieProduit>>? _categoriesFuture =
+    Future<List<CategorieProduit>>? categoriesFuture =
         ProduitService.getCategories();
 
     showModalBottomSheet(
@@ -166,7 +166,7 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
                         decoration: const InputDecoration(labelText: "Marque"),
                       ),
                       TextFormField(
-                        controller: _prixController,
+                        controller: prixController,
                         decoration:
                             const InputDecoration(labelText: "Prix unitaire"),
                         keyboardType: TextInputType.number,
@@ -175,14 +175,14 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
                             : null,
                       ),
                       TextFormField(
-                        controller: _descriptionController,
+                        controller: descriptionController,
                         decoration:
                             const InputDecoration(labelText: "Description"),
                         maxLines: 2,
                       ),
                       const SizedBox(height: 10),
                       FutureBuilder<List<CategorieProduit>>(
-                        future: _categoriesFuture,
+                        future: categoriesFuture,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
@@ -257,9 +257,9 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
                             nom: nomController.text,
                             marque: marqueController.text,
                             prixUnitaire:
-                                double.tryParse(_prixController.text) ?? 0,
+                                double.tryParse(prixController.text) ?? 0,
                             imageBase64: imageBase64,
-                            description: _descriptionController.text,
+                            description: descriptionController.text,
                             categorieId: selectedCategorieId!,
                           );
 
@@ -291,17 +291,17 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
   }
 
   void _showModifierProduitModal(BuildContext context, Produit produit) {
-    final _formKey = GlobalKey<FormState>();
-    final _nomController = TextEditingController(text: produit.nom);
-    final _marqueController = TextEditingController(text: produit.marque);
-    final _prixController =
+    final formKey = GlobalKey<FormState>();
+    final nomController = TextEditingController(text: produit.nom);
+    final marqueController = TextEditingController(text: produit.marque);
+    final prixController =
         TextEditingController(text: produit.prixUnitaire.toString());
-    final _descriptionController =
+    final descriptionController =
         TextEditingController(text: produit.description);
     String? imageBase64 = produit.imageBase64;
     int? selectedCategorieId = produit.categorieId;
 
-    Future<List<CategorieProduit>>? _categoriesFuture =
+    Future<List<CategorieProduit>>? categoriesFuture =
         ProduitService.getCategories();
 
     showModalBottomSheet(
@@ -320,7 +320,7 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
                 (BuildContext context, void Function(void Function()) state) {
               return SingleChildScrollView(
                 child: Form(
-                  key: _formKey,
+                  key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -328,7 +328,7 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold)),
                       TextFormField(
-                        controller: _nomController,
+                        controller: nomController,
                         decoration:
                             const InputDecoration(labelText: "Nom du produit"),
                         validator: (value) => value == null || value.isEmpty
@@ -336,11 +336,11 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
                             : null,
                       ),
                       TextFormField(
-                        controller: _marqueController,
+                        controller: marqueController,
                         decoration: const InputDecoration(labelText: "Marque"),
                       ),
                       TextFormField(
-                        controller: _prixController,
+                        controller: prixController,
                         decoration:
                             const InputDecoration(labelText: "Prix unitaire"),
                         keyboardType: TextInputType.number,
@@ -349,14 +349,14 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
                             : null,
                       ),
                       TextFormField(
-                        controller: _descriptionController,
+                        controller: descriptionController,
                         decoration:
                             const InputDecoration(labelText: "Description"),
                         maxLines: 2,
                       ),
                       const SizedBox(height: 10),
                       FutureBuilder<List<CategorieProduit>>(
-                        future: _categoriesFuture,
+                        future: categoriesFuture,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
@@ -416,7 +416,7 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () async {
-                          if (_formKey.currentState?.validate() != true) return;
+                          if (formKey.currentState?.validate() != true) return;
 
                           if (selectedCategorieId == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -429,12 +429,12 @@ class _ListeProduitsPageState extends State<ListeProduitsPage> {
 
                           final updatedProduit = Produit(
                             id: produit.id,
-                            nom: _nomController.text,
-                            marque: _marqueController.text,
+                            nom: nomController.text,
+                            marque: marqueController.text,
                             prixUnitaire:
-                                double.tryParse(_prixController.text) ?? 0,
+                                double.tryParse(prixController.text) ?? 0,
                             imageBase64: imageBase64,
-                            description: _descriptionController.text,
+                            description: descriptionController.text,
                             categorieId: selectedCategorieId!,
                           );
 
@@ -702,7 +702,7 @@ return RefreshIndicator(
                                   ),
                                 );
                               }
-                            }).toList(),
+                            }),
                           const SizedBox(height: 6),
                           Text(
                             isProduitOffert

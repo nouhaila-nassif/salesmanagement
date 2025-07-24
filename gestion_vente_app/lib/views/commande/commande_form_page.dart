@@ -20,12 +20,12 @@ class CommandeFormPage extends StatefulWidget {
       onNavigate;
 
   const CommandeFormPage({
-    Key? key,
+    super.key,
     required this.userRole,
     required this.userName,
     required this.onLogout,
     required this.onNavigate,
-  }) : super(key: key);
+  });
 
   @override
   State<CommandeFormPage> createState() => _CommandeFormPageState();
@@ -35,7 +35,7 @@ class _CommandeFormPageState extends State<CommandeFormPage> {
   int? _selectedClientId;
   int? _selectedVendeurId;
   DateTime _selectedDateLivraison = DateTime.now().add(const Duration(days: 1));
-  List<LigneCommande> _lignes = [];
+  final List<LigneCommande> _lignes = [];
   List<Produit> _produits = [];
   List<DropdownMenuItem<int>> _clientsDropdown = [];
 
@@ -51,7 +51,7 @@ class _CommandeFormPageState extends State<CommandeFormPage> {
       final produits = await ProduitService.getAllProduits();
       setState(() {
         _clientsDropdown = clients
-            .map((c) => DropdownMenuItem(value: c.id!, child: Text(c.nom)))
+            .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nom)))
             .toList();
         _produits = produits;
       });
@@ -363,9 +363,9 @@ class _CommandeFormPageState extends State<CommandeFormPage> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 4),
-                                  if (p.marque != null && p.marque!.isNotEmpty)
+                                  if (p.marque.isNotEmpty)
                                     Text(
-                                      p.marque!,
+                                      p.marque,
                                       style: TextStyle(
                                         color: Colors.grey.shade600,
                                         fontSize: 13,

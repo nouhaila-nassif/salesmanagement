@@ -10,6 +10,7 @@ import '../../services/client_service.dart';
 import '../../services/commande_service.dart';
 import '../../services/utilisateur_service.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/EvolutionChart.dart';
 import '../../widgets/navigation_bar.dart';
 
 class HomePage extends StatefulWidget {
@@ -19,12 +20,12 @@ class HomePage extends StatefulWidget {
   final void Function(String route, {Map<String, dynamic>? arguments}) onNavigate;
 
   const HomePage({
-    Key? key,
+    super.key,
     required this.userRole,
     required this.userName,
     required this.onLogout,
     required this.onNavigate,
-  }) : super(key: key);
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -40,6 +41,11 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _loadData();
   }
+
+Widget _buildEvolutionChartParPeriode(List<CommandeDTO> commandes) {
+  return EvolutionChartParPeriode(commandes: commandes);
+}
+
 
   void _loadData() {
     _clientsFuture = ClientService.getAllClients();
@@ -63,57 +69,78 @@ class _HomePageState extends State<HomePage> {
     return map;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tableau de Bord'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Actualiser',
-            onPressed: _refreshData,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Déconnexion',
-            onPressed: () async {
-              await AuthService.logout();
-              Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
-            },
-          ),
-        ],
-      ),
-      drawer: MainNavigationBar(
-        userRole: widget.userRole,
-        userName: widget.userName,
-        onLogout: widget.onLogout,
-        onNavigate: widget.onNavigate,
-        currentRoute: ModalRoute.of(context)?.settings.name ?? "/home",
-        newOrdersCount: 5,
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildMainKPISection(),
-             _buildStatisticsSection(
-  currentUserRole: 'ADMIN' // Remplacez par la variable contenant le rôle réel
-),
-              _buildChartsSection(),
-            ],
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text('Tableau de Bord'),
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Actualiser',
+          onPressed: _refreshData,
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout),
+          tooltip: 'Déconnexion',
+          onPressed: () async {
+            await AuthService.logout();
+            Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
+          },
+        ),
+      ],
+    ),
+    drawer: MainNavigationBar(
+      userRole: widget.userRole,
+      userName: widget.userName,
+      onLogout: widget.onLogout,
+      onNavigate: widget.onNavigate,
+      currentRoute: ModalRoute.of(context)?.settings.name ?? "/home",
+      newOrdersCount: 5,
+    ),
+    body: Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: _refreshData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildMainKPISection(),
+
+               
+
+                _buildStatisticsSection(currentUserRole: 'ADMIN'),
+                _buildChartsSection(),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+
+        // Bulle assistant flottante à droite
+Positioned(
+  right: 16,        // ← ici, à droite
+  bottom: 32,
+  child: FloatingActionButton(
+    backgroundColor: Theme.of(context).primaryColor,
+    heroTag: 'assistantChatBtn',
+    onPressed: () {
+      Navigator.pushNamed(context, '/ia');
+    },
+    tooltip: "Comment puis-je vous aider ?",
+    child: const Icon(Icons.chat_bubble_outline, size: 28),
+  ),
+),
+
+      ],
+    ),
+  );
+}
 
 
   Widget _buildMainKPISection() {
@@ -159,7 +186,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   _buildKPICard(
                     title: "Chiffre d'Affaires",
-                    value: "${NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalCA)}",
+                    value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalCA),
                     icon: Icons.attach_money,
                     color: Colors.green,
                     trend: _calculateTrend(commandes, (c) => c.montantTotal ?? 0),
@@ -173,7 +200,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   _buildKPICard(
                     title: "Panier Moyen",
-                    value: "${NumberFormat.currency(locale: 'fr', symbol: 'DH').format(avgCA)}",
+                    value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(avgCA),
                     icon: Icons.assessment,
                     color: Colors.orange,
                   ),
@@ -280,40 +307,80 @@ class _HomePageState extends State<HomePage> {
 
 Widget _buildStatisticsSection({required String currentUserRole}) {
   return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "📈 Statistiques",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "📈 Statistiques",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.blueAccent),
+              onPressed: _refreshData,
+              tooltip: "Actualiser les statistiques",
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
-            // Version pour grands écrans (affichage côte à côte)
-            if (constraints.maxWidth > 600) {
-              return Row(
-                children: [
-                  if (currentUserRole == 'ADMIN') ...[
+            if (constraints.maxWidth > 900) {
+              // ✅ Version grands écrans : deux colonnes équilibrées avec même hauteur
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (currentUserRole == 'ADMIN')
+                      Expanded(
+                        flex: 1,
+                        child: _buildUserStatsByRoleSection(),
+                      ),
+                    if (currentUserRole == 'ADMIN') const SizedBox(width: 20),
                     Expanded(
+                      flex: 1,
+                      child: _buildClientStatsSection(),
+                    ),
+                  ],
+                ),
+              );
+            } else if (constraints.maxWidth > 600) {
+              // ✅ Version écrans moyens : deux colonnes équilibrées
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (currentUserRole == 'ADMIN')
+                      Expanded(
+                        flex: 1,
+                        child: _buildUserStatsByRoleSection(),
+                      ),
+                    if (currentUserRole == 'ADMIN') const SizedBox(width: 12),
+                    Expanded(
+                      flex: 1,
+                      child: _buildClientStatsSection(),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              // ✅ Version mobiles : disposition verticale en colonne, même hauteur forcée
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (currentUserRole == 'ADMIN')
+                    SizedBox(
+                      height: 250, // ✅ même hauteur forcée
                       child: _buildUserStatsByRoleSection(),
                     ),
-                    const SizedBox(width: 12),
-                  ],
-                  Expanded(
+                  if (currentUserRole == 'ADMIN') const SizedBox(height: 12),
+                  SizedBox(
+                    height: 250,
                     child: _buildClientStatsSection(),
                   ),
-                ],
-              );
-            } 
-            // Version pour petits écrans (affichage en colonne)
-            else {
-              return Column(
-                children: [
-                  if (currentUserRole == 'ADMIN') _buildUserStatsByRoleSection(),
-                  if (currentUserRole == 'ADMIN') const SizedBox(height: 12),
-                  _buildClientStatsSection(),
                 ],
               );
             }
@@ -335,57 +402,130 @@ Widget _buildUserStatsByRoleSection() {
       } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
         return _buildEmptyCard('Aucun utilisateur trouvé');
       }
-      
-      // Compter les utilisateurs par rôle
+
       final usersByRole = groupBy(snapshot.data!, (user) => user.role);
-      
+      final roles = usersByRole.keys.toList();
+      final maxCount = usersByRole.values
+          .map((list) => list.length)
+          .reduce((a, b) => a > b ? a : b);
+
       return Card(
-        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 4,
+        shadowColor: Colors.grey.withOpacity(0.3),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Statistiques Utilisateurs par Rôle",
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Row(
+                children: const [
+                  Icon(Icons.bar_chart, color: Colors.blueAccent, size: 22),
+                  SizedBox(width: 6),
+                  Text(
+                    "Statistiques Utilisateurs par Rôle",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              // Afficher le nombre total
+              const SizedBox(height: 8),
               Text(
                 "Total: ${snapshot.data!.length} utilisateurs",
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
-              const SizedBox(height: 16),
-              // Afficher la répartition par rôle
-              ...usersByRole.entries.map((entry) {
-                final role = entry.key;
-                final count = entry.value.length;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: _getRoleColor(role),
-                          shape: BoxShape.circle,
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 260,
+                child: BarChart(
+                  BarChartData(
+                    maxY: (maxCount + 2).toDouble(),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 35,
+                          getTitlesWidget: (value, _) {
+                            return Text(
+                              value.toInt().toString(),
+                              style: const TextStyle(fontSize: 10),
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$role: ',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: _getRoleColor(role),
+                      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, _) {
+                            final index = value.toInt();
+                            if (index >= 0 && index < roles.length) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  roles[index],
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                                ),
+                              );
+                            }
+                            return const SizedBox();
+                          },
                         ),
                       ),
-                      Text('$count utilisateurs'),
-                    ],
+                    ),
+                    barGroups: List.generate(roles.length, (index) {
+                      final role = roles[index];
+                      final count = usersByRole[role]!.length;
+                      return BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          BarChartRodData(
+                            toY: count.toDouble(),
+                            width: 22,
+                            borderRadius: BorderRadius.circular(6),
+                            gradient: LinearGradient(
+                              colors: [
+                                _getRoleColor(role).withOpacity(0.7),
+                                _getRoleColor(role),
+                              ],
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                    gridData: FlGridData(
+                      show: true,
+                      drawHorizontalLine: true,
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: Colors.grey.withOpacity(0.2),
+                        strokeWidth: 1,
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    barTouchData: BarTouchData(
+                      enabled: true,
+                      touchTooltipData: BarTouchTooltipData(
+                        tooltipBgColor: Colors.blueGrey[800],
+                        tooltipRoundedRadius: 8,
+                        getTooltipItem: (group, _, rod, __) {
+                          final role = roles[group.x.toInt()];
+                          final count = rod.toY.toInt();
+                          return BarTooltipItem(
+                            "$role\n$count utilisateurs",
+                            const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                );
-              }).toList(),
+                ),
+              ),
             ],
           ),
         ),
@@ -434,167 +574,218 @@ Color _getRoleColor(String role) {
   if (maxValue <= 100) return 10;
   return (maxValue / 10).roundToDouble();
 }
- Widget _buildClientsStats(List<Client> clients) {
-    final clientsParType = countBy(clients, (c) => c.type);
-    final sortedTypes = clientsParType.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Répartition des Clients par Type",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+Widget _buildClientsStats(List<Client> clients) {
+ 
+
+  final clientsParType = countBy(clients, (c) => c.type);
+  final sortedTypes = clientsParType.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
+  final maxValue = sortedTypes.first.value.toDouble();
+  final interval = _calculateInterval(maxValue);
+  final colors = sortedTypes.map((e) => _getClientTypeColor(e.key)).toList();
+
+  return Card(
+    elevation: 2,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Répartition des Clients par Type",
+            style: TextStyle(
+              fontSize: 16, 
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 220,
-              child: BarChart(
-          BarChartData(
-  alignment: BarChartAlignment.spaceAround,
-  maxY: sortedTypes.isNotEmpty ? sortedTypes.first.value.toDouble() * 1.1 : 10, // 10% de marge
-  minY: 0,
-  barTouchData: BarTouchData(
-    enabled: true,
-    touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
-      // Gestion personnalisée du touché
-    },
-    touchTooltipData: BarTouchTooltipData(
-      tooltipBgColor: Colors.blueGrey,
-      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-        if (rod.toY == 0) return null; // Ne pas afficher pour les valeurs nulles
-        return BarTooltipItem(
-          '${sortedTypes[group.x.toInt()].key}\n${rod.toY.toInt()} clients',
-          const TextStyle(color: Colors.white, fontSize: 12),
-        );
-      },
-      tooltipMargin: 8,
-      tooltipRoundedRadius: 8,
-      fitInsideHorizontally: true,
-      fitInsideVertically: true,
-      tooltipPadding: const EdgeInsets.all(8),
-    ),
-    handleBuiltInTouches: true, // Modifié pour mieux gérer les interactions
-  ),
-  titlesData: FlTitlesData(
-    show: true,
-    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-    bottomTitles: AxisTitles(
-      sideTitles: SideTitles(
-        showTitles: true,
-        getTitlesWidget: (value, meta) {
-          if (value.toInt() >= sortedTypes.length) return const SizedBox();
-          final type = sortedTypes[value.toInt()].key;
-          return Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _abbreviateClientType(type),
-              style: const TextStyle(fontSize: 10),
-              overflow: TextOverflow.ellipsis,
-            ),
-          );
-        },
-        reservedSize: 40,
-      ),
-    ),
-    leftTitles: AxisTitles(
-      sideTitles: SideTitles(
-        showTitles: true,
-        reservedSize: 28,
-        interval: _calculateInterval(sortedTypes.isNotEmpty 
-            ? sortedTypes.first.value.toDouble() 
-            : 10),
-        getTitlesWidget: (value, meta) {
-          return Text(
-            value.toInt().toString(),
-            style: const TextStyle(fontSize: 10),
-          );
-        },
-      ),
-    ),
-  ),
-  borderData: FlBorderData(
-    show: true,
-    border: Border.all(color: const Color(0xff37434d), width: 0.5),
-  ),
-  gridData: FlGridData(
-    show: true,
-    drawVerticalLine: false,
-    horizontalInterval: _calculateInterval(sortedTypes.isNotEmpty 
-        ? sortedTypes.first.value.toDouble() 
-        : 10),
-    getDrawingHorizontalLine: (value) {
-      return FlLine(
-        color: Colors.grey.withOpacity(0.15),
-        strokeWidth: 1,
-      );
-    },
-  ),
-  barGroups: sortedTypes.asMap().entries.map((entry) {
-    final index = entry.key;
-    final type = entry.value;
-    return BarChartGroupData(
-      x: index,
-      barRods: [
-        BarChartRodData(
-          toY: type.value.toDouble(),
-          color: _getClientTypeColor(type.key),
-          width: 20,
-          borderRadius: BorderRadius.circular(4),
-          backDrawRodData: BackgroundBarChartRodData(
-            show: true,
-            toY: sortedTypes.isNotEmpty 
-                ? sortedTypes.first.value.toDouble() 
-                : 10,
-            color: Colors.grey.withOpacity(0.05),
           ),
-        ),
-      ],
-    );
-  }).toList(),
-),
-    ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 220,
+            child: BarChart(
+              _buildBarChartData(sortedTypes, maxValue, interval, colors),
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 4,
-              children: sortedTypes.map((entry) {
-                final color = _getClientTypeColor(entry.key);
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_abbreviateClientType(entry.key)} (${entry.value})',
-                      style: const TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          _buildLegend(sortedTypes, colors),
+        ],
+      ),
+    ),
+  );
+}
+
+BarChartData _buildBarChartData(
+  List<MapEntry<String, int>> data,
+  double maxValue,
+  double interval,
+  List<Color> colors,
+) {
+  return BarChartData(
+    alignment: BarChartAlignment.spaceBetween,
+    maxY: maxValue * 1.2, // 20% de marge pour meilleure visibilité
+    minY: 0,
+    barTouchData: BarTouchData(
+      enabled: true,
+      touchTooltipData: BarTouchTooltipData(
+        tooltipBgColor: Colors.blueGrey,
+        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+          final type = data[group.x.toInt()].key;
+          return BarTooltipItem(
+            '$type\n${rod.toY.toInt()} clients',
+            const TextStyle(color: Colors.white),
+          );
+        },
+      ),
+      touchCallback: (event, response) {
+        if (response != null && event is FlTapUpEvent) {
+          // Gestion personnalisée du tap
+        }
+      },
+    ),
+    titlesData: FlTitlesData(
+      show: true,
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          getTitlesWidget: (value, meta) {
+            if (value.toInt() >= data.length) return const SizedBox();
+            return SideTitleWidget(
+              axisSide: meta.axisSide,
+              space: 4,
+              child: Text(
+                _abbreviateClientType(data[value.toInt()].key),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.black54,
+                ),
+              ),
+            );
+          },
+          reservedSize: 28,
+        ),
+      ),
+      leftTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 32,
+          interval: interval,
+          getTitlesWidget: (value, meta) {
+            return SideTitleWidget(
+              axisSide: meta.axisSide,
+              space: 4,
+              child: Text(
+                value.toInt().toString(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.black54,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ),
+    borderData: FlBorderData(
+      show: true,
+      border: Border.all(
+        color: Colors.grey.withOpacity(0.3),
+        width: 0.8,
+      ),
+    ),
+    gridData: FlGridData(
+      show: true,
+      drawVerticalLine: false,
+      horizontalInterval: interval,
+      getDrawingHorizontalLine: (value) => FlLine(
+        color: Colors.grey.withOpacity(0.1),
+        strokeWidth: 1,
+        dashArray: [4],
+      ),
+    ),
+    barGroups: data.asMap().entries.map((entry) {
+      final index = entry.key;
+      final type = entry.value;
+      return BarChartGroupData(
+        x: index,
+        barsSpace: 8,
+        barRods: [
+          BarChartRodData(
+            toY: type.value.toDouble(),
+            gradient: LinearGradient(
+              colors: [
+                colors[index].withOpacity(0.8),
+                colors[index],
+              ],
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+            ),
+            width: 22,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(6),
+            ),
+            backDrawRodData: BackgroundBarChartRodData(
+              show: true,
+              toY: maxValue,
+              color: Colors.grey.withOpacity(0.05),
+            ),
+          ),
+        ],
+        // CHANGEMENT ICI : enlever showingTooltipIndicators
+        // Le tooltip s'affichera seulement au survol
+      );
+    }).toList(),
+  );
+}
+Widget _buildLegend(List<MapEntry<String, int>> data, List<Color> colors) {
+  return SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: data.asMap().entries.map((entry) {
+        final index = entry.key;
+        final type = entry.value;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: colors[index],
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 2,
+                      offset: Offset(0, 1),
                     ),
                   ],
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${_abbreviateClientType(type.key)} (${type.value})',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ),
+  );
+}
   Widget _buildChartsSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -637,9 +828,8 @@ Color _getRoleColor(String role) {
           ? Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildMonthlyEvolutionChart(commandesParMois),
-                ),
+               Expanded(child: _buildEvolutionChartParPeriode(commandes)),
+
                 const SizedBox(width: 16),
                 Expanded(
                   child: _buildCommandesParStatutChart(commandesParStatut),
@@ -723,7 +913,74 @@ Widget _buildMonthlyEvolutionChart(Map<int, int> commandesParMois) {
     ),
   );
 }
- // Fonction pour obtenir la couleur selon le statut
+
+// Fonction pour obtenir la couleur selon le statut
+Widget _buildCommandesParClientChart(List<CommandeDTO> commandes, List<Client> clients) {
+  final Map<String, int> commandesParClient = {};
+
+  for (var cmd in commandes) {
+    final clientIdStr = cmd.clientId?.toString() ?? 'unknown';
+    commandesParClient[clientIdStr] = (commandesParClient[clientIdStr] ?? 0) + 1;
+  }
+
+  final clientNoms = { for (var c in clients) c.id.toString(): c.nom };
+
+  final topClients = commandesParClient.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  final top10 = topClients.take(10).toList();
+
+  return SizedBox(
+    height: 300,
+    child: BarChart(
+      BarChartData(
+        maxY: (top10.isNotEmpty) ? top10.first.value.toDouble() + 2 : 10,
+        barGroups: top10.asMap().entries.map((entry) {
+          int index = entry.key;
+          var e = entry.value;
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: e.value.toDouble(),
+                color: Colors.blue,
+                width: 20,
+              ),
+            ],
+            showingTooltipIndicators: [0],
+          );
+        }).toList(),
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, _) {
+                int idx = value.toInt();
+                if (idx < 0 || idx >= top10.length) return Container();
+                final clientId = top10[idx].key;
+                final nom = clientNoms[clientId] ?? 'Client $clientId';
+                return SideTitleWidget(
+                  axisSide: AxisSide.bottom,
+                  child: Text(
+                    nom,
+                    style: const TextStyle(fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              },
+              reservedSize: 50,
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(showTitles: true),
+          ),
+        ),
+        gridData: FlGridData(show: true),
+        borderData: FlBorderData(show: false),
+      ),
+    ),
+  );
+}
+
 Color _getStatutColor(String statut) {
   // Convertir en minuscules et sans accents pour une comparaison plus large
   final statutLower = statut.toLowerCase().replaceAll('é', 'e').replaceAll('è', 'e').replaceAll('ê', 'e');
@@ -875,13 +1132,11 @@ Map<int, int> _groupCommandesParMois(List<CommandeDTO> commandes) {
     }
     
     for (var cmd in commandes) {
-      if (cmd.dateCreation != null) {
-        final date = DateTime.parse(cmd.dateCreation!);
-        if (date.year == now.year) {
-          result[date.month - 1] = (result[date.month - 1] ?? 0) + 1;
-        }
+      final date = DateTime.parse(cmd.dateCreation!);
+      if (date.year == now.year) {
+        result[date.month - 1] = (result[date.month - 1] ?? 0) + 1;
       }
-    }
+        }
     
     return result;
   }
@@ -1001,4 +1256,5 @@ class _Badge extends StatelessWidget {
       child: Center(child: child),
     );
   }
+  
 }

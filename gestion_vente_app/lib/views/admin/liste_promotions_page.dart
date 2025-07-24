@@ -14,12 +14,12 @@ class ListePromotionsPage extends StatefulWidget {
   final Function(String route, {Map<String, dynamic>? arguments}) onNavigate;
 
   const ListePromotionsPage({
-    Key? key,
+    super.key,
     required this.userRole,
     required this.userName,
     required this.onLogout,
     required this.onNavigate,
-  }) : super(key: key);
+  });
 
   @override
   State<ListePromotionsPage> createState() => _ListePromotionsPageState();
@@ -151,8 +151,9 @@ class _ListePromotionsPageState extends State<ListePromotionsPage> {
                             validator: (val) {
                               if (val == null || val.isEmpty) return "Requis";
                               final parsed = double.tryParse(val);
-                              if (parsed == null || parsed < 0 || parsed > 100)
+                              if (parsed == null || parsed < 0 || parsed > 100) {
                                 return "Doit être entre 0 et 100";
+                              }
                               return null;
                             },
                           ),
@@ -168,8 +169,9 @@ class _ListePromotionsPageState extends State<ListePromotionsPage> {
                             validator: (val) {
                               if (val == null || val.isEmpty) return "Requis";
                               final parsed = double.tryParse(val);
-                              if (parsed == null || parsed < 0 || parsed > 100)
+                              if (parsed == null || parsed < 0 || parsed > 100) {
                                 return "Doit être entre 0 et 100";
+                              }
                               return null;
                             },
                           ),
@@ -460,9 +462,8 @@ class _ListePromotionsPageState extends State<ListePromotionsPage> {
                             Text(
                               promo.type +
                                   (promo.type != 'CADEAU'
-                                      ? " - " +
-                                          (promo.categorie?.nom ??
-                                              'Sans catégorie')
+                                      ? " - ${promo.categorie?.nom ??
+                                              'Sans catégorie'}"
                                       : ''),
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,

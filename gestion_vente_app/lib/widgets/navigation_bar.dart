@@ -10,14 +10,14 @@ class MainNavigationBar extends StatelessWidget {
   final int newOrdersCount; // ✅ Exemple de badge (nouvelle commande)
 
   const MainNavigationBar({
-    Key? key,
+    super.key,
     required this.userRole,
     required this.userName,
     required this.onLogout,
     required this.onNavigate,
     required this.currentRoute,
     this.newOrdersCount = 0,
-  }) : super(key: key);
+  });
 
   bool get isAdmin => userRole == 'ADMIN';
   bool get isSuperviseur => userRole == 'SUPERVISEUR';

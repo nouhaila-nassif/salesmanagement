@@ -6,7 +6,7 @@ import '../models/visite_request.dart';
 class CalendrierWidget extends StatefulWidget {
   final List<Visite> visites;
 
-  const CalendrierWidget({Key? key, required this.visites}) : super(key: key);
+  const CalendrierWidget({super.key, required this.visites});
 
   @override
   State<CalendrierWidget> createState() => _CalendrierWidgetState();

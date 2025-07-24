@@ -24,12 +24,12 @@ class ListeVentesPage extends StatefulWidget {
       onNavigate;
 
   const ListeVentesPage({
-    Key? key,
+    super.key,
     required this.userRole,
     required this.userName,
     required this.onLogout,
     required this.onNavigate,
-  }) : super(key: key);
+  });
 
   @override
   State<ListeVentesPage> createState() => _ListeVentesPageState();
@@ -40,7 +40,7 @@ class _ListeVentesPageState extends State<ListeVentesPage> {
   int? _expandedCommandeId;
   final ScrollController _horizontalScrollController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
-  List<LigneCommande> _lignes = [];
+  final List<LigneCommande> _lignes = [];
 
   @override
   void initState() {
@@ -467,7 +467,7 @@ livraisonDate.isBefore(dateDuJour)
 
 
 if (isEnRetard) {
-  await CommandeService.updateCommandeStatut(commande.id!, 'NON_LIVREE');
+  await CommandeService.updateCommandeStatut(commande.id, 'NON_LIVREE');
   setState(() {
     commande.statut = 'NON_LIVREE';
   });
@@ -506,7 +506,7 @@ void _markAsNonLivree(int commandeId) async {
   }
 }
 bool _canMarkAsNonLivree(CommandeDTO commande) {
-  return commande.statut != 'LIVREE' && commande.statut != 'ANNULEE' && commande.statut != 'NON_LIVREE';
+  return commande.statut == 'VALIDEE';
 }
 
 Widget _buildActionButtons(CommandeDTO commande) {
@@ -614,8 +614,8 @@ double reductionPourProduit(LigneCommande ligne) {
 
   double totalReduction = 0.0;
   for (final promotion in promotions) {
-    if (promotion.tauxReduction != null && promotion.tauxReduction! > 0) {
-      totalReduction += sousTotal * promotion.tauxReduction!;
+    if (promotion.tauxReduction > 0) {
+      totalReduction += sousTotal * promotion.tauxReduction;
     }
     if (promotion.discountValue != null && promotion.discountValue! > 0) {
       totalReduction += promotion.discountValue! * ligne.quantite;
@@ -776,22 +776,22 @@ final List<List<String>> tableData = [
                     ),
                     pw.SizedBox(height: 12),
                     pw.Text(
-                      'Nom : ${client?.nom?.isNotEmpty == true ? client!.nom : (commande.clientNom.isNotEmpty ? commande.clientNom : "Non renseigné")}',
+                      'Nom : ${client?.nom.isNotEmpty == true ? client!.nom : (commande.clientNom.isNotEmpty ? commande.clientNom : "Non renseigné")}',
                       style: pw.TextStyle(font: ttf, fontSize: 12),
                     ),
                     pw.SizedBox(height: 6),
                     pw.Text(
-                      'Email : ${client?.email?.isNotEmpty == true ? client!.email! : "Non renseigné"}',
+                      'Email : ${client?.email.isNotEmpty == true ? client!.email : "Non renseigné"}',
                       style: pw.TextStyle(font: ttf, fontSize: 12),
                     ),
                     pw.SizedBox(height: 6),
                     pw.Text(
-                      'Téléphone : ${client?.telephone?.isNotEmpty == true ? client!.telephone! : "Non renseigné"}',
+                      'Téléphone : ${client?.telephone.isNotEmpty == true ? client!.telephone : "Non renseigné"}',
                       style: pw.TextStyle(font: ttf, fontSize: 12),
                     ),
                     pw.SizedBox(height: 6),
                     pw.Text(
-                      'Adresse : ${client?.adresse?.isNotEmpty == true ? client!.adresse! : "Non renseigné"}',
+                      'Adresse : ${client?.adresse.isNotEmpty == true ? client!.adresse : "Non renseigné"}',
                       style: pw.TextStyle(font: ttf, fontSize: 12),
                     ),
                   ],

@@ -11,7 +11,7 @@ import '../services/route_service.dart';
 import '../services/utilisateur_service.dart';
 
 class ChatbotPage extends StatefulWidget {
-  const ChatbotPage({Key? key}) : super(key: key);
+  const ChatbotPage({super.key});
 
   @override
   State<ChatbotPage> createState() => _ChatbotPageState();
@@ -163,8 +163,8 @@ Widget build(BuildContext context) {
               FloatingActionButton(
                 onPressed: _isLoading ? null : () => _handleUserMessage(_controller.text),
                 backgroundColor: _isLoading ? Colors.grey : primaryColor,
-                child: const Icon(Icons.send, color: Colors.white),
                 mini: true,
+                child: const Icon(Icons.send, color: Colors.white),
               ),
             ],
           ),
@@ -427,7 +427,7 @@ Widget _buildMessageBubble(_ChatMessage msg, Color primaryColor) {
 
         return """ID: ${cmd.id} | Client: ${cmd.clientNom} | Créée: ${cmd.dateCreation} | Livraison: ${cmd.dateLivraison} | Total: ${cmd.montantTotal} DH | Avant remise: ${cmd.montantTotalAvantRemise} DH | Réduction: ${cmd.montantReduction} DH | Statut: ${cmd.statut} | Promotions: ${cmd.promotionsAppliquees.map((p) => p.nom).join(", ")}
 Produits:
-${lignesDescription}""";
+$lignesDescription""";
       }).toList();
 
       final infosUtilisateurs = utilisateurs.map((u) {
@@ -572,7 +572,7 @@ La recherche pour "${messageAnalysis['query']}" n'a donné aucun résultat dans 
 
 ---
 
-**Question de l'utilisateur :** ${userMessage}
+**Question de l'utilisateur :** $userMessage
 
 **Analyse détectée :** ${messageAnalysis['type']} - ${messageAnalysis['intent']}
 

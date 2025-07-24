@@ -133,7 +133,7 @@ class _GestionVendeursPageState extends State<GestionVendeursPage> {
     String role = utilisateur?.role ?? 'VENDEURDIRECT';
     int? superviseurId = utilisateur?.superviseurId;
 
-    bool _passwordVisible = false;
+    bool passwordVisible = false;
 
     showDialog(
       context: context,
@@ -174,19 +174,19 @@ class _GestionVendeursPageState extends State<GestionVendeursPage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: passwordController,
-                    obscureText: !_passwordVisible,
+                    obscureText: !passwordVisible,
                     decoration: InputDecoration(
                       labelText: 'Mot de passe',
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _passwordVisible
+                          passwordVisible
                               ? Icons.visibility
                               : Icons.visibility_off,
                           color: Colors.grey,
                         ),
                         onPressed: () => setState(
-                            () => _passwordVisible = !_passwordVisible),
+                            () => passwordVisible = !passwordVisible),
                       ),
                     ),
                   ),

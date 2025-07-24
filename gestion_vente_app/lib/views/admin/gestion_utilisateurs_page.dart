@@ -74,7 +74,7 @@ void _afficherFormulaire({UtilisateurResponse? utilisateur}) {
   selectedRole = utilisateur?.role ?? '';
   selectedSuperviseurId = null;
 
-  bool _passwordVisible = false;
+  bool passwordVisible = false;
 
 final TextEditingController telephoneController = TextEditingController(text: utilisateur?.telephone ?? '');
 final TextEditingController emailController = TextEditingController(text: utilisateur?.email ?? '');
@@ -104,14 +104,14 @@ showDialog(
             ),
             TextField(
               controller: passwordController,
-              obscureText: !_passwordVisible,
+              obscureText: !passwordVisible,
               decoration: InputDecoration(
                 labelText: 'Mot de passe',
                 suffixIcon: IconButton(
-                  icon: Icon(_passwordVisible ? Icons.visibility : Icons.visibility_off),
+                  icon: Icon(passwordVisible ? Icons.visibility : Icons.visibility_off),
                   onPressed: () {
                     setState(() {
-                      _passwordVisible = !_passwordVisible;
+                      passwordVisible = !passwordVisible;
                     });
                   },
                 ),

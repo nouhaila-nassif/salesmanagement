@@ -15,12 +15,12 @@
         onNavigate;
 
     const StockPage({
-      Key? key,
+      super.key,
       required this.userRole,
       required this.userName,
       required this.onLogout,
       required this.onNavigate,
-    }) : super(key: key);
+    });
 
     @override
     State<StockPage> createState() => _StockPageState();
@@ -55,7 +55,7 @@
   try {
     final result = await stockService.getTousLesStocks();
 
-    if (result != null && result.isNotEmpty) {
+    if (result.isNotEmpty) {
       setState(() {
         allStocks = result;
         isLoading = false;
@@ -96,7 +96,7 @@ Future<void> loadStock() async {
         error = "Aucun stock retourné";
       });
     }
-  } catch (e, stackTrace) {
+  } catch (e) {
     setState(() {
       isLoading = false;
      
@@ -311,14 +311,11 @@ Future<void> loadStock() async {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (p.marque != null)
-                                      Text("Marque: ${p.marque}"),
-                                    if (p.prixUnitaire != null)
-                                      Text("Prix: ${p.prixUnitaire} MAD"),
-                                    if (p.description != null)
-                                      Text("Description: ${p.description}",
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis),
+                                    Text("Marque: ${p.marque}"),
+                                    Text("Prix: ${p.prixUnitaire} MAD"),
+                                    Text("Description: ${p.description}",
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis),
                                   ],
                                 ),
                                 selected: produitSelectionne == p,
