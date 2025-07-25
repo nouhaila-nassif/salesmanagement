@@ -1,109 +1,237 @@
+import 'dart:io' show File; // Mobile uniquement
+import 'dart:typed_data'; // Pour Uint8List sur Web
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_sound/flutter_sound.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
+
 import '../services/GeminiService.dart';
 
-class IAChatPage extends StatefulWidget {
-  const IAChatPage({super.key});
+class AskAIScreen extends StatefulWidget {
+  const AskAIScreen({super.key});
 
   @override
-  _IAChatPageState createState() => _IAChatPageState();
+  State<AskAIScreen> createState() => _AskAIScreenState();
 }
 
-class _IAChatPageState extends State<IAChatPage> {
+class _AskAIScreenState extends State<AskAIScreen> {
   final TextEditingController _controller = TextEditingController();
-  final List<_ChatMessage> _messages = [];
-  bool _isLoading = false;
+  final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
 
-  void _askQuestion() async {
-    final question = _controller.text.trim();
-    if (question.isEmpty || _isLoading) return;
+  File? selectedAudioFile; // Mobile
+  Uint8List? webAudioBytes; // Web
+  String? webFileName; // Nom du fichier audio sur Web
+
+  bool isRecording = false;
+  bool isLoading = false;
+  String response = "";
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) {
+      _initRecorder();
+    }
+  }
+
+  Future<void> _initRecorder() async {
+    await _recorder.openRecorder();
+  }
+
+  @override
+  void dispose() {
+    if (!kIsWeb) {
+      _recorder.closeRecorder();
+    }
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// ▶️ Enregistrement audio (mobile uniquement)
+  Future<void> _startRecording() async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enregistrement audio non pris en charge sur le Web.")),
+      );
+      return;
+    }
+
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Microphone non autorisé.")),
+      );
+      return;
+    }
+
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/recorded_audio.wav';
+
+    await _recorder.startRecorder(
+      toFile: filePath,
+      codec: Codec.pcm16WAV,
+    );
 
     setState(() {
-      _messages.add(_ChatMessage(text: question, isUser: true));
-      _isLoading = true;
+      isRecording = true;
+      selectedAudioFile = null;
+    });
+  }
+
+  /// ⏹️ Arrêt enregistrement (mobile uniquement)
+  Future<void> _stopRecording() async {
+    if (kIsWeb) return;
+    final filePath = await _recorder.stopRecorder();
+    if (filePath != null) {
+      setState(() {
+        isRecording = false;
+        selectedAudioFile = File(filePath);
+      });
+    }
+  }
+
+  /// 🎵 Sélectionner un fichier audio
+  Future<void> _pickAudioFile() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+
+    if (result != null) {
+      if (kIsWeb) {
+        setState(() {
+          webAudioBytes = result.files.single.bytes;
+          webFileName = result.files.single.name;
+        });
+      } else if (result.files.single.path != null) {
+        setState(() {
+          selectedAudioFile = File(result.files.single.path!);
+        });
+      }
+    }
+  }
+
+  /// 🤖 Envoyer la requête à l'IA
+  Future<void> _sendToIA() async {
+    final question = _controller.text.trim();
+
+    if (question.isEmpty && selectedAudioFile == null && webAudioBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Entrez une question ou ajoutez un audio.")),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      response = "";
     });
 
-    _controller.clear();
-    FocusScope.of(context).unfocus();
-
     try {
-      final reponse = await GeminiService.askGemini(question);
-      setState(() {
-        _messages.add(_ChatMessage(text: reponse, isUser: false));
-      });
+    final result = await GeminiService.askGemini(
+  query: question.isNotEmpty ? question : null,
+  audioFile: kIsWeb ? null : selectedAudioFile,
+  webAudioBytes: kIsWeb ? webAudioBytes : null,
+  webFileName: kIsWeb ? webFileName : null,
+);
+
+
+      setState(() => response = result);
     } catch (e) {
-      setState(() {
-        _messages.add(_ChatMessage(text: 'Erreur : ${e.toString()}', isUser: false));
-      });
+      setState(() => response = "Erreur : ${e.toString()}");
     } finally {
-      setState(() => _isLoading = false);
+      setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Assistant IA")),
+      appBar: AppBar(
+        title: const Text("Assistant IA"),
+        backgroundColor: Colors.deepPurple,
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _messages.isEmpty
-                  ? const Center(child: Text("Posez votre question pour commencer la conversation"))
-                  : ListView.builder(
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        return Align(
-                          alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: message.isUser ? Colors.blueAccent : Colors.grey[300],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              message.text,
-                              style: TextStyle(
-                                color: message.isUser ? Colors.white : Colors.black87,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+            TextField(
+              controller: _controller,
+              maxLines: null,
+              decoration: const InputDecoration(
+                labelText: "Pose ta question",
+                border: OutlineInputBorder(),
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+
             Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    onSubmitted: (_) => _askQuestion(),
-                    decoration: InputDecoration(
-                      labelText: "Posez votre question",
-                      border: const OutlineInputBorder(),
-                    ),
+                ElevatedButton.icon(
+                  onPressed: kIsWeb
+                      ? null
+                      : (isRecording ? _stopRecording : _startRecording),
+                  icon: Icon(isRecording ? Icons.stop : Icons.mic),
+                  label: Text(kIsWeb
+                      ? "Indispo Web"
+                      : isRecording
+                          ? "Stop"
+                          : "Enregistrer"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isRecording ? Colors.red : Colors.blue,
                   ),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: (_controller.text.trim().isEmpty || _isLoading) ? null : _askQuestion,
-                  child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send),
-                )
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: _pickAudioFile,
+                  icon: const Icon(Icons.audiotrack),
+                  label: const Text("Fichier audio"),
+                ),
               ],
             ),
+
+            if (!kIsWeb && selectedAudioFile != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  "Audio sélectionné : ${selectedAudioFile!.path.split('/').last}",
+                  style: const TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ),
+
+            if (kIsWeb && webAudioBytes != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  "Fichier sélectionné (Web) : $webFileName",
+                  style: const TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ),
+
+            const SizedBox(height: 16),
+
+            ElevatedButton.icon(
+              onPressed: isLoading ? null : _sendToIA,
+              icon: const Icon(Icons.send),
+              label: const Text("Envoyer"),
+            ),
+
+            const SizedBox(height: 20),
+
+            if (isLoading) const Center(child: CircularProgressIndicator()),
+
+            if (response.isNotEmpty)
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Text(
+                    "💬 Réponse IA :\n$response",
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
-}
-
-class _ChatMessage {
-  final String text;
-  final bool isUser;
-  _ChatMessage({required this.text, required this.isUser});
 }

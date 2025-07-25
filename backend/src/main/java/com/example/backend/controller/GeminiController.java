@@ -4,15 +4,15 @@ package com.example.backend.controller;
 import com.example.backend.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +38,8 @@ public class GeminiController {
     // Configuration des tentatives
     private static final int MAX_RETRY_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MS = 2000; // 2 secondes
-
+    @Autowired
+    AudioTranscriptionController audioTranscriptionController;
     @Autowired
     public GeminiController(
             GeminiService geminiService,
@@ -81,61 +82,99 @@ public class GeminiController {
             return ResponseEntity.status(500).body(Map.of("error", "Erreur interne serveur"));
         }
     }
-    @PostMapping("/ask")
-    public ResponseEntity<?> askQuestion(@RequestBody Map<String, String> payload) {
+
+    @PostMapping(
+            value = "/ask-json",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> askQuestionJson(@RequestBody Map<String, String> payload) {
         String query = payload.get("query");
         if (query == null || query.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Missing 'query'"));
         }
 
         try {
-            // Appeler la méthode pour remplacer les dates relatives dans la requête
             query = geminiService.remplacerDatesRelatives(query);
 
-            // Récupérer l'utilisateur connecté
             String username = getCurrentUsername();
             if (username == null) username = "anonymous";
 
-            // Initialiser historique s'il n'existe pas
             historiqueParUtilisateur.putIfAbsent(username, new ArrayList<>());
             List<String> historique = historiqueParUtilisateur.get(username);
             historique.add("User: " + query);
 
-            // Si la question concerne Dislogroup, utiliser le service dédié
             if (query.toLowerCase().contains("dislogroup") || query.toLowerCase().contains("entreprise")) {
                 String reponseDislogroup = dislogroupInfoService.repondreQuestionSurDislogroup(query);
                 historique.add("Gemini: " + reponseDislogroup);
                 return ResponseEntity.ok(Map.of("result", reponseDislogroup));
             }
 
-            // Préparer le contexte
             String contexteComplet = prepareContext(historique);
-
-            // Appeler Gemini avec retry logic
             String reponseIA = callGeminiWithRetry(query, contexteComplet);
             historique.add("Gemini: " + reponseIA);
 
             return ResponseEntity.ok(Map.of("result", reponseIA));
 
-        } catch (HttpServerErrorException.ServiceUnavailable e) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of(
-                            "error", "Le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.",
-                            "code", "SERVICE_UNAVAILABLE",
-                            "retry_after", "30"
-                    ));
-        } catch (HttpServerErrorException e) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of(
-                            "error", "Erreur du service IA: " + e.getMessage(),
-                            "code", "IA_SERVICE_ERROR"
-                    ));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of(
-                            "error", "Erreur interne: " + e.getMessage(),
-                            "code", "INTERNAL_ERROR"
-                    ));
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+    @PostMapping(
+            value = "/ask-multipart",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<?> askQuestionMultipart(
+            @RequestPart(value = "query", required = false) String query,
+            @RequestPart(value = "audioFile", required = false) MultipartFile audioFile) {
+
+        try {
+            if ((query == null || query.isBlank()) && (audioFile == null || audioFile.isEmpty())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Missing 'query' or 'audioFile'"));
+            }
+
+            if (audioFile != null && !audioFile.isEmpty()) {
+                File tempFile = File.createTempFile("upload_", ".wav");
+                audioFile.transferTo(tempFile);
+
+                query = audioTranscriptionController.executerWhisper(
+                        tempFile.getAbsolutePath(),
+                        System.getProperty("java.io.tmpdir")
+                );
+                tempFile.delete();
+
+                if (query == null || query.isBlank()) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Transcription vide"));
+                }
+                System.out.println("[API /ask-multipart] Transcription : " + query);
+            }
+
+            query = geminiService.remplacerDatesRelatives(query);
+
+            String username = getCurrentUsername();
+            if (username == null) username = "anonymous";
+
+            historiqueParUtilisateur.putIfAbsent(username, new ArrayList<>());
+            List<String> historique = historiqueParUtilisateur.get(username);
+            historique.add("User: " + query);
+
+            if (query.toLowerCase().contains("dislogroup") || query.toLowerCase().contains("entreprise")) {
+                String reponseDislogroup = dislogroupInfoService.repondreQuestionSurDislogroup(query);
+                historique.add("Gemini: " + reponseDislogroup);
+                return ResponseEntity.ok(Map.of("result", reponseDislogroup));
+            }
+
+            String contexteComplet = prepareContext(historique);
+            String reponseIA = callGeminiWithRetry(query, contexteComplet);
+            historique.add("Gemini: " + reponseIA);
+
+            return ResponseEntity.ok(Map.of("result", reponseIA));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
 

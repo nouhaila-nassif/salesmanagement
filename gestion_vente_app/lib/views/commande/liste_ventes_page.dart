@@ -11,10 +11,8 @@ import '../../services/utilisateur_service.dart';
 import '../../widgets/navigation_bar.dart';
 import 'CommandeDetailsPage.dart';
 import 'commande_form_page.dart';
-import 'dart:html' as html;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 class ListeVentesPage extends StatefulWidget {
   final String userRole;
@@ -293,11 +291,11 @@ class _ListeVentesPageState extends State<ListeVentesPage> {
               tooltip: 'Marquer comme non livrée',
               onPressed: () => _markAsNonLivree(commande.id),
             ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf, color: Colors.purple),
-            tooltip: 'Télécharger la facture',
-            onPressed: () => generateAndDownloadPdfWeb(commande),
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.picture_as_pdf, color: Colors.purple),
+          //   tooltip: 'Télécharger la facture',
+          //   onPressed: () => generateAndDownloadPdfWeb(commande),
+          // ),
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.blue),
             tooltip: 'Modifier',
@@ -544,11 +542,11 @@ Widget _buildActionButtons(CommandeDTO commande) {
           onPressed: () => _markAsNonLivree(commande.id),
         ),
 
-      IconButton(
-        icon: const Icon(Icons.picture_as_pdf, color: Colors.purple),
-        tooltip: 'Télécharger la facture',
-        onPressed: () => generateAndDownloadPdfWeb(commande),
-      ),
+      // IconButton(
+      //   icon: const Icon(Icons.picture_as_pdf, color: Colors.purple),
+      //   tooltip: 'Télécharger la facture',
+      //   onPressed: () => generateAndDownloadPdfWeb(commande),
+      // ),
       IconButton(
         icon: const Icon(Icons.edit, color: Colors.blue),
         tooltip: 'Modifier',
@@ -625,478 +623,478 @@ double reductionPourProduit(LigneCommande ligne) {
   return totalReduction;
 }
 
-Future<void> generateAndDownloadPdfWeb(CommandeDTO commande) async {
-    final pdf = pw.Document();
-    final ttf =
-        pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Regular.ttf'));
-    final emojiFont =
-        pw.Font.ttf(await rootBundle.load('fonts/NotoEmoji-Regular.ttf'));
-    final client = await fetchClientForCommande(commande);
-    final vendeur = await fetchVendeurForCommande(commande);
+// Future<void> generateAndDownloadPdfWeb(CommandeDTO commande) async {
+//     final pdf = pw.Document();
+//     final ttf =
+//         pw.Font.ttf(await rootBundle.load('fonts/NotoSans-Regular.ttf'));
+//     final emojiFont =
+//         pw.Font.ttf(await rootBundle.load('fonts/NotoEmoji-Regular.ttf'));
+//     final client = await fetchClientForCommande(commande);
+//     final vendeur = await fetchVendeurForCommande(commande);
 
-    pw.TextStyle emojiTextStyle({double size = 12, bool isBold = false}) {
-      return pw.TextStyle(
-        font: ttf,
-        fontFallback: [emojiFont],
-        fontSize: size,
-        fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
-        color: PdfColors.blueGrey800,
-      );
-    }
+//     pw.TextStyle emojiTextStyle({double size = 12, bool isBold = false}) {
+//       return pw.TextStyle(
+//         font: ttf,
+//         fontFallback: [emojiFont],
+//         fontSize: size,
+//         fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+//         color: PdfColors.blueGrey800,
+//       );
+//     }
 
-    final Uint8List logoBytes = await rootBundle
-        .load('assets/logo.png')
-        .then((v) => v.buffer.asUint8List());
-    final logoImage = pw.MemoryImage(logoBytes);
+//     final Uint8List logoBytes = await rootBundle
+//         .load('assets/logo.png')
+//         .then((v) => v.buffer.asUint8List());
+//     final logoImage = pw.MemoryImage(logoBytes);
 
- // Étape 1 : calcul du total des sous-totaux des lignes non offertes
-final lignesPayantes = commande.lignes.where((l) => !l.produitOffert).toList();
-final totalSousTotal = lignesPayantes.fold<double>(
-  0.0,
-  (sum, ligne) => sum + ligne.produit.prixUnitaire * ligne.quantite,
-);
+//  // Étape 1 : calcul du total des sous-totaux des lignes non offertes
+// final lignesPayantes = commande.lignes.where((l) => !l.produitOffert).toList();
+// final totalSousTotal = lignesPayantes.fold<double>(
+//   0.0,
+//   (sum, ligne) => sum + ligne.produit.prixUnitaire * ligne.quantite,
+// );
 
-// Étape 2 : générer les lignes avec calcul par ligne
-final List<List<String>> tableData = [
-  ...commande.lignes.map((ligne) {
-    final isCadeau = ligne.produitOffert;
-    final qte = isCadeau ? '${ligne.quantite} (offert)' : '${ligne.quantite}';
-    final pu = '${ligne.produit.prixUnitaire.toStringAsFixed(2)} DH';
+// // Étape 2 : générer les lignes avec calcul par ligne
+// final List<List<String>> tableData = [
+//   ...commande.lignes.map((ligne) {
+//     final isCadeau = ligne.produitOffert;
+//     final qte = isCadeau ? '${ligne.quantite} (offert)' : '${ligne.quantite}';
+//     final pu = '${ligne.produit.prixUnitaire.toStringAsFixed(2)} DH';
 
-    final sousTotal = ligne.produit.prixUnitaire * ligne.quantite;
+//     final sousTotal = ligne.produit.prixUnitaire * ligne.quantite;
 
-    final reduction = isCadeau || totalSousTotal == 0
-        ? 0.0
-        : (sousTotal / totalSousTotal) * commande.montantReduction;
+//     final reduction = isCadeau || totalSousTotal == 0
+//         ? 0.0
+//         : (sousTotal / totalSousTotal) * commande.montantReduction;
 
-    final totalApresRemise = sousTotal - reduction;
+//     final totalApresRemise = sousTotal - reduction;
 
- String promosInfo = '';
-    if (ligne.produit.promotions != null && ligne.produit.promotions!.isNotEmpty) {
-      promosInfo = ligne.produit.promotions!
-          .map((promo) {
-            final taux = promo.tauxReduction != null
-                ? ' ${(promo.tauxReduction * 100).toStringAsFixed(0)}%'
-                : '';
-            return '${promo.nom}$taux';
-          })
-          .join(', ');
-    }
+//  String promosInfo = '';
+//     if (ligne.produit.promotions != null && ligne.produit.promotions!.isNotEmpty) {
+//       promosInfo = ligne.produit.promotions!
+//           .map((promo) {
+//             final taux = promo.tauxReduction != null
+//                 ? ' ${(promo.tauxReduction * 100).toStringAsFixed(0)}%'
+//                 : '';
+//             return '${promo.nom}$taux';
+//           })
+//           .join(', ');
+//     }
 
-    // Puis tu ajoutes la chaîne promosInfo au nom du produit
-    final produit = isCadeau
-      ? '${ligne.produit.nom} (CADEAU)||Montant : 0.00 DH'
-      : '${ligne.produit.nom.replaceAll('||', ' ')}'
-'${promosInfo.isNotEmpty ? ' | Promo: $promosInfo' : ''}'
-'||Montant : ${sousTotal.toStringAsFixed(2)} DH';
+//     // Puis tu ajoutes la chaîne promosInfo au nom du produit
+//     final produit = isCadeau
+//       ? '${ligne.produit.nom} (CADEAU)||Montant : 0.00 DH'
+//       : '${ligne.produit.nom.replaceAll('||', ' ')}'
+// '${promosInfo.isNotEmpty ? ' | Promo: $promosInfo' : ''}'
+// '||Montant : ${sousTotal.toStringAsFixed(2)} DH';
 
-    return [
-      qte,
-      produit,
-      pu,
-      '${reduction.toStringAsFixed(2)} DH',
-      '${totalApresRemise.toStringAsFixed(2)} DH',
-    ];
-  }),
-  ...commande.promotionsCadeaux.map((cadeau) => [
-    '${cadeau.quantite} (offert)',
-    '${cadeau.produitOffertNom} (CADEAU)\nMontant : 0.00 DH',
-    '0.00 DH',
-    '0.00 DH',
-    '0.00 DH',
-  ]),
-];
-
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
-        build: (context) => [
-          // --- En-tête: logo + vendeur + client ---
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              // Logo + vendeur (gauche)
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Image(logoImage, height: 80),
-                  pw.SizedBox(height: 8),
-                  pw.Text('Commerçant :',
-                      style: pw.TextStyle(
-                          font: ttf,
-                          fontSize: 12,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.blueGrey900)),
-                  pw.Text(vendeur?.nomUtilisateur ?? commande.vendeurNom,
-                      style: pw.TextStyle(
-                          font: ttf,
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold)),
-                ],
-              ),
-
-              pw.Container(
-                width: 240,
-                padding: const pw.EdgeInsets.all(14),
-                decoration: pw.BoxDecoration(
-                  color: PdfColors.blueGrey50,
-                  border: pw.Border.all(color: PdfColors.blueGrey300, width: 1),
-                  borderRadius:
-                      const pw.BorderRadius.all(pw.Radius.circular(8)),
-                  boxShadow: [
-                    pw.BoxShadow(
-                      color: PdfColors.grey300,
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 8),
-                      decoration: pw.BoxDecoration(
-                        color: PdfColors.blueGrey200,
-                        borderRadius:
-                            const pw.BorderRadius.all(pw.Radius.circular(6)),
-                      ),
-                      child: pw.Text(
-                        'Informations client',
-                        style: pw.TextStyle(
-                          font: ttf,
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.blueGrey900,
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 12),
-                    pw.Text(
-                      'Nom : ${client?.nom.isNotEmpty == true ? client!.nom : (commande.clientNom.isNotEmpty ? commande.clientNom : "Non renseigné")}',
-                      style: pw.TextStyle(font: ttf, fontSize: 12),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      'Email : ${client?.email.isNotEmpty == true ? client!.email : "Non renseigné"}',
-                      style: pw.TextStyle(font: ttf, fontSize: 12),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      'Téléphone : ${client?.telephone.isNotEmpty == true ? client!.telephone : "Non renseigné"}',
-                      style: pw.TextStyle(font: ttf, fontSize: 12),
-                    ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      'Adresse : ${client?.adresse.isNotEmpty == true ? client!.adresse : "Non renseigné"}',
-                      style: pw.TextStyle(font: ttf, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          pw.SizedBox(height: 24),
-
-          // --- Détails commande (numéro, statut, dates) ---
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('N° de Commande : ${commande.id}',
-                      style: pw.TextStyle(
-                          font: ttf,
-                          fontSize: 12,
-                          fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Statut : ${commande.statut}',
-                      style: pw.TextStyle(font: ttf, fontSize: 12)),
-                ],
-              ),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Text(
-                      'Date création : ${_formatDate(commande.dateCreation)}',
-                      style: pw.TextStyle(font: ttf, fontSize: 12)),
-                  pw.Text(
-                      'Date livraison : ${_formatDate(commande.dateLivraison)}',
-                      style: pw.TextStyle(font: ttf, fontSize: 12)),
-                ],
-              ),
-            ],
-          ),
-
-          pw.SizedBox(height: 28),
-
-          // --- Tableau Articles + Récapitulatif ---
-          pw.Table(
-            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.7),
-      columnWidths: {
-  0: pw.FlexColumnWidth(1),
-  1: pw.FlexColumnWidth(5), // Produit élargi
-  2: pw.FlexColumnWidth(2),
-  3: pw.FlexColumnWidth(2),
-  4: pw.FlexColumnWidth(2),
-},
+//     return [
+//       qte,
+//       produit,
+//       pu,
+//       '${reduction.toStringAsFixed(2)} DH',
+//       '${totalApresRemise.toStringAsFixed(2)} DH',
+//     ];
+//   }),
+//   ...commande.promotionsCadeaux.map((cadeau) => [
+//     '${cadeau.quantite} (offert)',
+//     '${cadeau.produitOffertNom} (CADEAU)\nMontant : 0.00 DH',
+//     '0.00 DH',
+//     '0.00 DH',
+//     '0.00 DH',
+//   ]),
+// ];
 
 
-            children: [
-              // Entête
-              pw.TableRow(
-                decoration: pw.BoxDecoration(color: PdfColors.blueGrey100),
-                children: [
-                for (final header in [
-  'Qté',
-  'Produit',
-  'Tarif unitaire',
-  'Réduction',
-  'Total après remise'
-])
+//     pdf.addPage(
+//       pw.MultiPage(
+//         pageFormat: PdfPageFormat.a4,
+//         margin: const pw.EdgeInsets.all(32),
+//         build: (context) => [
+//           // --- En-tête: logo + vendeur + client ---
+//           pw.Row(
+//             crossAxisAlignment: pw.CrossAxisAlignment.start,
+//             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+//             children: [
+//               // Logo + vendeur (gauche)
+//               pw.Column(
+//                 crossAxisAlignment: pw.CrossAxisAlignment.start,
+//                 children: [
+//                   pw.Image(logoImage, height: 80),
+//                   pw.SizedBox(height: 8),
+//                   pw.Text('Commerçant :',
+//                       style: pw.TextStyle(
+//                           font: ttf,
+//                           fontSize: 12,
+//                           fontWeight: pw.FontWeight.bold,
+//                           color: PdfColors.blueGrey900)),
+//                   pw.Text(vendeur?.nomUtilisateur ?? commande.vendeurNom,
+//                       style: pw.TextStyle(
+//                           font: ttf,
+//                           fontSize: 14,
+//                           fontWeight: pw.FontWeight.bold)),
+//                 ],
+//               ),
+
+//               pw.Container(
+//                 width: 240,
+//                 padding: const pw.EdgeInsets.all(14),
+//                 decoration: pw.BoxDecoration(
+//                   color: PdfColors.blueGrey50,
+//                   border: pw.Border.all(color: PdfColors.blueGrey300, width: 1),
+//                   borderRadius:
+//                       const pw.BorderRadius.all(pw.Radius.circular(8)),
+//                   boxShadow: [
+//                     pw.BoxShadow(
+//                       color: PdfColors.grey300,
+//                       blurRadius: 4,
+//                     ),
+//                   ],
+//                 ),
+//                 child: pw.Column(
+//                   crossAxisAlignment: pw.CrossAxisAlignment.start,
+//                   children: [
+//                     pw.Container(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 6, horizontal: 8),
+//                       decoration: pw.BoxDecoration(
+//                         color: PdfColors.blueGrey200,
+//                         borderRadius:
+//                             const pw.BorderRadius.all(pw.Radius.circular(6)),
+//                       ),
+//                       child: pw.Text(
+//                         'Informations client',
+//                         style: pw.TextStyle(
+//                           font: ttf,
+//                           fontSize: 14,
+//                           fontWeight: pw.FontWeight.bold,
+//                           color: PdfColors.blueGrey900,
+//                         ),
+//                       ),
+//                     ),
+//                     pw.SizedBox(height: 12),
+//                     pw.Text(
+//                       'Nom : ${client?.nom.isNotEmpty == true ? client!.nom : (commande.clientNom.isNotEmpty ? commande.clientNom : "Non renseigné")}',
+//                       style: pw.TextStyle(font: ttf, fontSize: 12),
+//                     ),
+//                     pw.SizedBox(height: 6),
+//                     pw.Text(
+//                       'Email : ${client?.email.isNotEmpty == true ? client!.email : "Non renseigné"}',
+//                       style: pw.TextStyle(font: ttf, fontSize: 12),
+//                     ),
+//                     pw.SizedBox(height: 6),
+//                     pw.Text(
+//                       'Téléphone : ${client?.telephone.isNotEmpty == true ? client!.telephone : "Non renseigné"}',
+//                       style: pw.TextStyle(font: ttf, fontSize: 12),
+//                     ),
+//                     pw.SizedBox(height: 6),
+//                     pw.Text(
+//                       'Adresse : ${client?.adresse.isNotEmpty == true ? client!.adresse : "Non renseigné"}',
+//                       style: pw.TextStyle(font: ttf, fontSize: 12),
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+
+//           pw.SizedBox(height: 24),
+
+//           // --- Détails commande (numéro, statut, dates) ---
+//           pw.Row(
+//             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+//             children: [
+//               pw.Column(
+//                 crossAxisAlignment: pw.CrossAxisAlignment.start,
+//                 children: [
+//                   pw.Text('N° de Commande : ${commande.id}',
+//                       style: pw.TextStyle(
+//                           font: ttf,
+//                           fontSize: 12,
+//                           fontWeight: pw.FontWeight.bold)),
+//                   pw.Text('Statut : ${commande.statut}',
+//                       style: pw.TextStyle(font: ttf, fontSize: 12)),
+//                 ],
+//               ),
+//               pw.Column(
+//                 crossAxisAlignment: pw.CrossAxisAlignment.end,
+//                 children: [
+//                   pw.Text(
+//                       'Date création : ${_formatDate(commande.dateCreation)}',
+//                       style: pw.TextStyle(font: ttf, fontSize: 12)),
+//                   pw.Text(
+//                       'Date livraison : ${_formatDate(commande.dateLivraison)}',
+//                       style: pw.TextStyle(font: ttf, fontSize: 12)),
+//                 ],
+//               ),
+//             ],
+//           ),
+
+//           pw.SizedBox(height: 28),
+
+//           // --- Tableau Articles + Récapitulatif ---
+//           pw.Table(
+//             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.7),
+//       columnWidths: {
+//   0: pw.FlexColumnWidth(1),
+//   1: pw.FlexColumnWidth(5), // Produit élargi
+//   2: pw.FlexColumnWidth(2),
+//   3: pw.FlexColumnWidth(2),
+//   4: pw.FlexColumnWidth(2),
+// },
 
 
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 6),
-                      child: pw.Text(header,
-                          style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              font: ttf,
-                              color: PdfColors.blueGrey900)),
-                    ),
-                ],
-              ),
+//             children: [
+//               // Entête
+//               pw.TableRow(
+//                 decoration: pw.BoxDecoration(color: PdfColors.blueGrey100),
+//                 children: [
+//                 for (final header in [
+//   'Qté',
+//   'Produit',
+//   'Tarif unitaire',
+//   'Réduction',
+//   'Total après remise'
+// ])
 
-              // Lignes articles
-              ...tableData.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final rowData = entry.value;
-                final isCadeau = rowData[1].contains('(CADEAU)');
-                final isAlternateRow = idx % 2 == 1 && !isCadeau;
 
-                return pw.TableRow(
-                  decoration: isCadeau
-                      ? pw.BoxDecoration(color: PdfColors.green100)
-                      : (isAlternateRow
-                          ? pw.BoxDecoration(color: PdfColors.grey100)
-                          : null),
-                  children: [
-                    for (int i = 0; i < rowData.length; i++)
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 6),
-                       child: i == 1
-    ? pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            rowData[i].split('||')[0], // Nom produit
-            style: isCadeau
-                ? pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.green900,
-                    font: ttf,
-                    fontSize: 12,
-                  )
-                : pw.TextStyle(
-                    font: ttf,
-                    fontSize: 12,
-                    color: PdfColors.black,
-                  ),
-          ),
-          pw.Text(
-            rowData[i].split('||')[1], // Montant
-            style: pw.TextStyle(
-              font: ttf,
-              fontSize: 10,
-              color: PdfColors.grey700,
-              fontStyle: pw.FontStyle.italic,
-            ),
-          ),
-        ],
-      )
-    : pw.Text(
-        rowData[i],
-        style: isCadeau
-            ? pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.green900,
-                font: ttf)
-            : pw.TextStyle(font: ttf, color: PdfColors.black),
-      )
+//                     pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 8, horizontal: 6),
+//                       child: pw.Text(header,
+//                           style: pw.TextStyle(
+//                               fontWeight: pw.FontWeight.bold,
+//                               font: ttf,
+//                               color: PdfColors.blueGrey900)),
+//                     ),
+//                 ],
+//               ),
 
-                      ),
-                  ],
-                );
-              }),
+//               // Lignes articles
+//               ...tableData.asMap().entries.map((entry) {
+//                 final idx = entry.key;
+//                 final rowData = entry.value;
+//                 final isCadeau = rowData[1].contains('(CADEAU)');
+//                 final isAlternateRow = idx % 2 == 1 && !isCadeau;
 
-              // Ligne résumé financier (avant remise, réduction, total TTC)
+//                 return pw.TableRow(
+//                   decoration: isCadeau
+//                       ? pw.BoxDecoration(color: PdfColors.green100)
+//                       : (isAlternateRow
+//                           ? pw.BoxDecoration(color: PdfColors.grey100)
+//                           : null),
+//                   children: [
+//                     for (int i = 0; i < rowData.length; i++)
+//                       pw.Padding(
+//                         padding: const pw.EdgeInsets.symmetric(
+//                             vertical: 8, horizontal: 6),
+//                        child: i == 1
+//     ? pw.Column(
+//         crossAxisAlignment: pw.CrossAxisAlignment.start,
+//         children: [
+//           pw.Text(
+//             rowData[i].split('||')[0], // Nom produit
+//             style: isCadeau
+//                 ? pw.TextStyle(
+//                     fontWeight: pw.FontWeight.bold,
+//                     color: PdfColors.green900,
+//                     font: ttf,
+//                     fontSize: 12,
+//                   )
+//                 : pw.TextStyle(
+//                     font: ttf,
+//                     fontSize: 12,
+//                     color: PdfColors.black,
+//                   ),
+//           ),
+//           pw.Text(
+//             rowData[i].split('||')[1], // Montant
+//             style: pw.TextStyle(
+//               font: ttf,
+//               fontSize: 10,
+//               color: PdfColors.grey700,
+//               fontStyle: pw.FontStyle.italic,
+//             ),
+//           ),
+//         ],
+//       )
+//     : pw.Text(
+//         rowData[i],
+//         style: isCadeau
+//             ? pw.TextStyle(
+//                 fontWeight: pw.FontWeight.bold,
+//                 color: PdfColors.green900,
+//                 font: ttf)
+//             : pw.TextStyle(font: ttf, color: PdfColors.black),
+//       )
+
+//                       ),
+//                   ],
+//                 );
+//               }),
+
+//               // Ligne résumé financier (avant remise, réduction, total TTC)
              
-              pw.TableRow(
-                decoration: pw.BoxDecoration(color: PdfColors.blueGrey50),
-                children: [
-                  pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 6),
-                      child: pw.Text('')),
-                  pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 6),
-                      child: pw.Text('')),
-                  pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 6),
-                      child: pw.Text('Réduction TOTALE',
-                          style: pw.TextStyle(font: ttf, fontSize: 10))),
-                  pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 6),
-                      child: pw.Text(
-                          '${commande.montantReduction.toStringAsFixed(2)} DH',
-                          style: pw.TextStyle(font: ttf, fontSize: 10))),
-                ],
-              ),
-              pw.TableRow(
-                decoration: pw.BoxDecoration(color: PdfColors.blueGrey100),
-                children: [
-                  pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 10, horizontal: 6),
-                      child: pw.Text('')),
-                  pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 10, horizontal: 6),
-                      child: pw.Text('')),
-                  pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 10, horizontal: 6),
-                      child: pw.Text('Total TTC',
-                          style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 14,
-                              font: ttf,
-                              color: PdfColors.blue900))),
-                  pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          vertical: 10, horizontal: 6),
-                      child: pw.Text(
-                          '${commande.montantTotal.toStringAsFixed(2)} DH',
-                          style: pw.TextStyle(
-                              fontWeight: pw.FontWeight.bold,
-                              fontSize: 14,
-                              font: ttf,
-                              color: PdfColors.blue900))),
-                ],
-              ),
-            ],
-          ),
+//               pw.TableRow(
+//                 decoration: pw.BoxDecoration(color: PdfColors.blueGrey50),
+//                 children: [
+//                   pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 8, horizontal: 6),
+//                       child: pw.Text('')),
+//                   pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 8, horizontal: 6),
+//                       child: pw.Text('')),
+//                   pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 8, horizontal: 6),
+//                       child: pw.Text('Réduction TOTALE',
+//                           style: pw.TextStyle(font: ttf, fontSize: 10))),
+//                   pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 8, horizontal: 6),
+//                       child: pw.Text(
+//                           '${commande.montantReduction.toStringAsFixed(2)} DH',
+//                           style: pw.TextStyle(font: ttf, fontSize: 10))),
+//                 ],
+//               ),
+//               pw.TableRow(
+//                 decoration: pw.BoxDecoration(color: PdfColors.blueGrey100),
+//                 children: [
+//                   pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 10, horizontal: 6),
+//                       child: pw.Text('')),
+//                   pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 10, horizontal: 6),
+//                       child: pw.Text('')),
+//                   pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 10, horizontal: 6),
+//                       child: pw.Text('Total TTC',
+//                           style: pw.TextStyle(
+//                               fontWeight: pw.FontWeight.bold,
+//                               fontSize: 14,
+//                               font: ttf,
+//                               color: PdfColors.blue900))),
+//                   pw.Padding(
+//                       padding: const pw.EdgeInsets.symmetric(
+//                           vertical: 10, horizontal: 6),
+//                       child: pw.Text(
+//                           '${commande.montantTotal.toStringAsFixed(2)} DH',
+//                           style: pw.TextStyle(
+//                               fontWeight: pw.FontWeight.bold,
+//                               fontSize: 14,
+//                               font: ttf,
+//                               color: PdfColors.blue900))),
+//                 ],
+//               ),
+//             ],
+//           ),
 
-          pw.SizedBox(height: 24),
+//           pw.SizedBox(height: 24),
 
-          // Promotions appliquées
-          if (commande.promotionsCadeaux.isNotEmpty ||
-              commande.promotionsAppliquees.isNotEmpty) ...[
-            pw.Text('Promotions appliquées :',
-                style: pw.TextStyle(
-                    fontWeight: pw.FontWeight.bold,
-                    fontSize: 15,
-                    font: ttf,
-                    color: PdfColors.blueGrey900)),
-            pw.SizedBox(height: 10),
-          ],
+//           // Promotions appliquées
+//           if (commande.promotionsCadeaux.isNotEmpty ||
+//               commande.promotionsAppliquees.isNotEmpty) ...[
+//             pw.Text('Promotions appliquées :',
+//                 style: pw.TextStyle(
+//                     fontWeight: pw.FontWeight.bold,
+//                     fontSize: 15,
+//                     font: ttf,
+//                     color: PdfColors.blueGrey900)),
+//             pw.SizedBox(height: 10),
+//           ],
 
-          if (commande.promotionsCadeaux.isNotEmpty)
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('🎁 Cadeaux (${commande.promotionsCadeaux.length})',
-                    style: emojiTextStyle(isBold: true, size: 14)),
-                pw.SizedBox(height: 6),
-                ...commande.promotionsCadeaux.map((promo) => pw.Bullet(
-                      text:
-                          '${promo.quantite} × ${promo.produitOffertNom} offert(s) pour ${promo.quantiteCondition}+ ${promo.produitConditionNom}',
-                      style: pw.TextStyle(font: ttf, color: PdfColors.black),
-                    )),
-                pw.SizedBox(height: 12),
-              ],
-            ),
+//           if (commande.promotionsCadeaux.isNotEmpty)
+//             pw.Column(
+//               crossAxisAlignment: pw.CrossAxisAlignment.start,
+//               children: [
+//                 pw.Text('🎁 Cadeaux (${commande.promotionsCadeaux.length})',
+//                     style: emojiTextStyle(isBold: true, size: 14)),
+//                 pw.SizedBox(height: 6),
+//                 ...commande.promotionsCadeaux.map((promo) => pw.Bullet(
+//                       text:
+//                           '${promo.quantite} × ${promo.produitOffertNom} offert(s) pour ${promo.quantiteCondition}+ ${promo.produitConditionNom}',
+//                       style: pw.TextStyle(font: ttf, color: PdfColors.black),
+//                     )),
+//                 pw.SizedBox(height: 12),
+//               ],
+//             ),
 
-          if (commande.promotionsAppliquees.isNotEmpty)
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('🛍 Remises (${commande.promotionsAppliquees.length})',
-                    style: emojiTextStyle(isBold: true, size: 14)),
-                pw.SizedBox(height: 6),
-                ...commande.promotionsAppliquees.map((promo) {
-                  final reduction = promo.tauxReduction != null
-                      ? '${(promo.tauxReduction * 100).toStringAsFixed(0)}% de réduction'
-                      : 'Offre spéciale';
-                  return pw.Bullet(
-                      text: '${promo.nom} - $reduction',
-                      style: pw.TextStyle(font: ttf, color: PdfColors.black));
-                }),
-              ],
-            ),
+//           if (commande.promotionsAppliquees.isNotEmpty)
+//             pw.Column(
+//               crossAxisAlignment: pw.CrossAxisAlignment.start,
+//               children: [
+//                 pw.Text('🛍 Remises (${commande.promotionsAppliquees.length})',
+//                     style: emojiTextStyle(isBold: true, size: 14)),
+//                 pw.SizedBox(height: 6),
+//                 ...commande.promotionsAppliquees.map((promo) {
+//                   final reduction = promo.tauxReduction != null
+//                       ? '${(promo.tauxReduction * 100).toStringAsFixed(0)}% de réduction'
+//                       : 'Offre spéciale';
+//                   return pw.Bullet(
+//                       text: '${promo.nom} - $reduction',
+//                       style: pw.TextStyle(font: ttf, color: PdfColors.black));
+//                 }),
+//               ],
+//             ),
 
-          pw.SizedBox(height: 32),
-        ],
-        footer: (context) {
-          final baseStyle =
-              pw.TextStyle(fontSize: 8, color: PdfColors.grey600, font: ttf);
+//           pw.SizedBox(height: 32),
+//         ],
+//         footer: (context) {
+//           final baseStyle =
+//               pw.TextStyle(fontSize: 8, color: PdfColors.grey600, font: ttf);
 
-          return pw.Container(
-            padding: const pw.EdgeInsets.only(top: 12),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('Dislog Group – Société Anonyme', style: baseStyle),
-                    pw.Text(
-                        'Zone Industrielle Ouled Saleh, Bouskoura, Casablanca 20100, Maroc',
-                        style: baseStyle),
-                    pw.Text('ICE : 002082324000004', style: baseStyle),
-                    pw.Text('Capital social : 453 509 700 MAD',
-                        style: baseStyle),
-                  ],
-                ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text('Signature  : ____________________',
-                        style: baseStyle),
-                    pw.Text(
-                        'le ${_formatDate(DateTime.now().toIso8601String())}',
-                        style: baseStyle),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+//           return pw.Container(
+//             padding: const pw.EdgeInsets.only(top: 12),
+//             child: pw.Row(
+//               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+//               children: [
+//                 pw.Column(
+//                   crossAxisAlignment: pw.CrossAxisAlignment.start,
+//                   children: [
+//                     pw.Text('Dislog Group – Société Anonyme', style: baseStyle),
+//                     pw.Text(
+//                         'Zone Industrielle Ouled Saleh, Bouskoura, Casablanca 20100, Maroc',
+//                         style: baseStyle),
+//                     pw.Text('ICE : 002082324000004', style: baseStyle),
+//                     pw.Text('Capital social : 453 509 700 MAD',
+//                         style: baseStyle),
+//                   ],
+//                 ),
+//                 pw.Column(
+//                   crossAxisAlignment: pw.CrossAxisAlignment.end,
+//                   children: [
+//                     pw.Text('Signature  : ____________________',
+//                         style: baseStyle),
+//                     pw.Text(
+//                         'le ${_formatDate(DateTime.now().toIso8601String())}',
+//                         style: baseStyle),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           );
+//         },
+//       ),
+//     );
 
-    final bytes = await pdf.save();
-    final blob = html.Blob([bytes], 'application/pdf');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.document.createElement('a') as html.AnchorElement
-      ..href = url
-      ..download = 'facture_${commande.id}.pdf'
-      ..style.display = 'none';
+//     final bytes = await pdf.save();
+//     final blob = html.Blob([bytes], 'application/pdf');
+//     final url = html.Url.createObjectUrlFromBlob(blob);
+//     final anchor = html.document.createElement('a') as html.AnchorElement
+//       ..href = url
+//       ..download = 'facture_${commande.id}.pdf'
+//       ..style.display = 'none';
 
-    html.document.body!.append(anchor);
-    anchor.click();
-    anchor.remove();
-    html.Url.revokeObjectUrl(url);
-  }        
+//     html.document.body!.append(anchor);
+//     anchor.click();
+//     anchor.remove();
+//     html.Url.revokeObjectUrl(url);
+//   }        
 
 // Format simple de date
 

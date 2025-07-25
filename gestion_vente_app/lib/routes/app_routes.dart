@@ -19,7 +19,7 @@ import '../widgets/ia_chat_page.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
   '/': (context) => const LoginPage(),
-  '/ia': (context) => IAChatPage(),
+  '/ia': (context) => AskAIScreen(),
  '/commande/edit': (context) {
   final settings = ModalRoute.of(context)!.settings;
   final args = settings.arguments as Map<String, dynamic>?;

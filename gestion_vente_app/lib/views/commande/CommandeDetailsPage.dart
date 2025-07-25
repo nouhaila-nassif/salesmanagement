@@ -2,11 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../models/ligne_commande_dto.dart';
 import '../../../models/produit.dart';
-import '../../../models/promotion.dart';
 import '../../../services/commande_service.dart';
 import '../../../services/client_service.dart';
 import '../../../services/produit_service.dart';
-import '../../../services/promotion_service.dart';
 import '../../models/PromotionCadeauInfo.dart';
 import '../../models/commande_dto.dart';
 import '../../widgets/navigation_bar.dart';
@@ -21,13 +19,13 @@ class CommandeEditPage extends StatefulWidget {
   final CommandeDTO commande; // Commande à modifier
 
   const CommandeEditPage({
-    Key? key,
+    super.key,
     required this.userRole,
     required this.userName,
     required this.onLogout,
     required this.onNavigate,
     required this.commande,
-  }) : super(key: key);
+  });
 
   @override
   State<CommandeEditPage> createState() => _CommandeEditPageState();
@@ -63,7 +61,7 @@ class _CommandeEditPageState extends State<CommandeEditPage> {
       final produits = await ProduitService.getAllProduits();
       setState(() {
         _clientsDropdown = clients
-            .map((c) => DropdownMenuItem(value: c.id!, child: Text(c.nom)))
+            .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nom)))
             .toList();
         _produits = produits;
         _isLoading = false;
@@ -534,9 +532,9 @@ if (widget.commande.statut == 'LIVREE' ||
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 4),
-                                    if (p.marque != null && p.marque!.isNotEmpty)
+                                    if (p.marque.isNotEmpty)
                                       Text(
-                                        p.marque!,
+                                        p.marque,
                                         style: TextStyle(
                                           color: Colors.grey.shade600,
                                           fontSize: 13,

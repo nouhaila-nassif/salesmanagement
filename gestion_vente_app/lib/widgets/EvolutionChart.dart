@@ -8,7 +8,7 @@ import '../models/commande_dto.dart';
 class EvolutionChartParPeriode extends StatefulWidget {
   final List<CommandeDTO> commandes;
 
-  const EvolutionChartParPeriode({required this.commandes});
+  const EvolutionChartParPeriode({super.key, required this.commandes});
 
   @override
   State<EvolutionChartParPeriode> createState() => _EvolutionChartParPeriodeState();
@@ -163,15 +163,14 @@ class _EvolutionChartParPeriodeState extends State<EvolutionChartParPeriode> {
       DateTime? date;
       if (commande.dateCreation is DateTime) {
         date = commande.dateCreation as DateTime;
-      } else if (commande.dateCreation is String) {
-        try {
-          date = DateTime.parse(commande.dateCreation);
-        } catch (_) {
-          continue; // Ignore si date invalide
-        }
       } else {
-        continue; // Ignore données invalides
+        try {
+        date = DateTime.parse(commande.dateCreation);
+      } catch (_) {
+        continue; // Ignore si date invalide
       }
+      }
+    
 
       String key;
       switch (period) {

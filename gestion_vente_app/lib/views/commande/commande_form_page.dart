@@ -2,15 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../models/ligne_commande_dto.dart';
 import '../../../models/produit.dart';
-import '../../../models/promotion.dart';
 import '../../../services/commande_service.dart';
 import '../../../services/client_service.dart';
 import '../../../services/produit_service.dart';
-import '../../../services/promotion_service.dart';
 import '../../models/PromotionCadeauInfo.dart';
 import '../../models/commande_dto.dart';
 import '../../widgets/navigation_bar.dart';
-import 'package:collection/collection.dart';
 
 class CommandeFormPage extends StatefulWidget {
   final String userRole;

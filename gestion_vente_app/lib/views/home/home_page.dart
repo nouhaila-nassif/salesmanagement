@@ -284,40 +284,30 @@ Widget _buildTopClientsSection() {
   );
 }
 
- Widget _buildMainKPISection() {
+Widget _buildMainKPISection() {
   return FutureBuilder(
     future: Future.wait([_commandesFuture, _clientsFuture, _utilisateursFuture]),
     builder: (context, AsyncSnapshot<List<dynamic>> snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return _buildLoadingCard('Chargement des KPI...');
       }
-      
       if (snapshot.hasError) {
         return _buildErrorCard('Erreur de chargement des données', _refreshData);
       }
-      
+
       final commandes = snapshot.data?[0] as List<CommandeDTO>? ?? [];
       final clients = snapshot.data?[1] as List<Client>? ?? [];
       final utilisateurs = snapshot.data?[2] as List<UtilisateurResponse>? ?? [];
-      
+
       final totalCommandes = commandes.length;
       final totalClients = clients.length;
-      final totalUtilisateurs = utilisateurs.length;
-      
       double totalCA = commandes.fold(0, (sum, cmd) => sum + (cmd.montantTotal ?? 0));
       double avgCA = totalCommandes > 0 ? totalCA / totalCommandes : 0;
-
-      // 1. Vendeurs actifs
       final vendeursActifs = commandes.map((c) => c.vendeurNom).whereType<String>().toSet().length;
-
-      // 2. Taux de commandes livrées
       final commandesLivrees = commandes.where((c) => c.statut == 'LIVREE').length;
       final tauxLivraison = totalCommandes > 0 ? (commandesLivrees / totalCommandes) * 100 : 0;
-
-      // 3. Montant total remises (exemple, si champ montantReduction existe)
       double totalRemises = commandes.fold(0, (sum, cmd) => sum + (cmd.montantReduction ?? 0));
 
-      // 4. Nombre moyen de commandes par client
       final commandesParClient = <int, int>{};
       for (var cmd in commandes) {
         final idClient = cmd.clientId ?? -1;
@@ -326,20 +316,14 @@ Widget _buildTopClientsSection() {
       double avgCommandesParClient = commandesParClient.isNotEmpty
           ? commandesParClient.values.reduce((a, b) => a + b) / commandesParClient.length
           : 0;
-
-      // 5. Client le plus actif
       final clientPlusActif = commandesParClient.entries.fold<MapEntry<int, int>?>(null, (prev, curr) {
         if (prev == null || curr.value > prev.value) return curr;
         return prev;
       });
-
-      // 6. Produit le plus vendu (exemple avec lignes commande si accessible)
-      // Ici, je suppose que tu as accès aux lignes de commande et produits.
-      // Sinon, à adapter selon ta structure.
       final produitVenduCounts = <String, int>{};
       for (var cmd in commandes) {
         for (var ligne in cmd.lignes) {
-          final prodNom = ligne.produit?.nom ?? 'Inconnu';
+          final prodNom = ligne.produit.nom ?? 'Inconnu';
           produitVenduCounts[prodNom] = (produitVenduCounts[prodNom] ?? 0) + (ligne.quantite ?? 0);
         }
       }
@@ -349,90 +333,57 @@ Widget _buildTopClientsSection() {
       });
 
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "📊 KPI Principaux",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              "Tableau de Bord - KPI",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.2,
-              children: [
-                _buildKPICard(
-                  title: "Chiffre d'Affaires",
-                  value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalCA),
-                  icon: Icons.attach_money,
-                  color: Colors.green,
-                  trend: _calculateTrend(commandes, (c) => c.montantTotal ?? 0),
-                ),
-                _buildKPICard(
-                  title: "Commandes",
-                  value: totalCommandes.toString(),
-                  icon: Icons.shopping_cart,
-                  color: Colors.blue,
-                  trend: _calculateTrend(commandes, (c) => 1),
-                ),
-                _buildKPICard(
-                  title: "Panier Moyen",
-                  value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(avgCA),
-                  icon: Icons.assessment,
-                  color: Colors.orange,
-                ),
-                _buildKPICard(
-                  title: "Clients",
-                  value: totalClients.toString(),
-                  icon: Icons.people,
-                  color: Colors.purple,
-                  trend: _calculateTrend(clients, (c) => 1),
-                ),
-                // Nouveaux KPIs
-                _buildKPICard(
-                  title: "Vendeurs Actifs",
-                  value: vendeursActifs.toString(),
-                  icon: Icons.person,
-                  color: Colors.teal,
-                ),
-                _buildKPICard(
-                  title: "Taux Livraison (%)",
-                  value: "${tauxLivraison.toStringAsFixed(1)}%",
-                  icon: Icons.local_shipping,
-                  color: Colors.indigo,
-                ),
-                _buildKPICard(
-                  title: "Total Remises",
-                  value: NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalRemises),
-                  icon: Icons.percent,
-                  color: Colors.redAccent,
-                ),
-                _buildKPICard(
-                  title: "Moyenne Commandes / Client",
-                  value: avgCommandesParClient.toStringAsFixed(1),
-                  icon: Icons.account_balance_wallet,
-                  color: Colors.brown,
-                ),
-                _buildKPICard(
-                  title: "Client le + actif",
-                  value: clientPlusActif != null
-                      ? (clients.firstWhere((c) => c.id == clientPlusActif.key).nom + " (${clientPlusActif.value})")
-                      : "-",
-                  icon: Icons.star,
-                  color: Colors.amber,
-                ),
-                _buildKPICard(
-                  title: "Produit le + vendu",
-                  value: produitPlusVendu != null ? "${produitPlusVendu.key} (${produitPlusVendu.value})" : "-",
-                  icon: Icons.shopping_basket,
-                  color: Colors.deepPurple,
-                ),
-              ],
+            const SizedBox(height: 20),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                int crossAxisCount = constraints.maxWidth > 900
+                    ? 4
+                    : constraints.maxWidth > 600
+                        ? 3
+                        : 2;
+                return GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                  childAspectRatio: 1.3,
+                  children: [
+                    _buildSimpleKPICard("Chiffre d'Affaires",
+                        NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalCA),
+                        Icons.attach_money, Colors.green),
+                    _buildSimpleKPICard("Commandes", totalCommandes.toString(), Icons.shopping_cart, Colors.blue),
+                    _buildSimpleKPICard("Panier Moyen",
+                        NumberFormat.currency(locale: 'fr', symbol: 'DH').format(avgCA),
+                        Icons.assessment, Colors.orange),
+                    _buildSimpleKPICard("Clients", totalClients.toString(), Icons.people, Colors.purple),
+                    _buildSimpleKPICard("Vendeurs Actifs", vendeursActifs.toString(), Icons.person, Colors.teal),
+                    _buildSimpleKPICard("Taux Livraison",
+                        "${tauxLivraison.toStringAsFixed(1)}%", Icons.local_shipping, Colors.indigo),
+                    _buildSimpleKPICard("Total Remises",
+                        NumberFormat.currency(locale: 'fr', symbol: 'DH').format(totalRemises),
+                        Icons.percent, Colors.redAccent),
+                    _buildSimpleKPICard("Moyenne Cmd / Client",
+                        avgCommandesParClient.toStringAsFixed(1), Icons.account_balance_wallet, Colors.brown),
+                    _buildSimpleKPICard("Client le + Actif",
+                        clientPlusActif != null
+                            ? ("${clients.firstWhere((c) => c.id == clientPlusActif.key).nom} (${clientPlusActif.value})")
+                            : "-", Icons.star, Colors.amber),
+                    _buildSimpleKPICard("Produit le + Vendu",
+                        produitPlusVendu != null
+                            ? "${produitPlusVendu.key} (${produitPlusVendu.value})"
+                            : "-", Icons.shopping_basket, Colors.deepPurple),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -441,76 +392,60 @@ Widget _buildTopClientsSection() {
   );
 }
 
-  Widget _buildKPICard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-    double? trend,
-  }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+Widget _buildSimpleKPICard(String title, String value, IconData icon, Color color) {
+  return MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: color.withOpacity(0.25), width: 1.8),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, size: 28, color: color),
-                if (trend != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: trend > 0 ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          trend > 0 ? Icons.trending_up : Icons.trending_down,
-                          size: 16,
-                          color: trend > 0 ? Colors.green : Colors.red,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "${trend.abs().toStringAsFixed(1)}%",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: trend > 0 ? Colors.green : Colors.red,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const Spacer(),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+            padding: const EdgeInsets.all(12),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+              letterSpacing: 0.4,
             ),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w600,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
 Widget BarChartClientsParRoute(Map<String, int> clientsParRoute) {
   final sorted = clientsParRoute.entries.toList()
@@ -848,7 +783,7 @@ Map<String, int> calculerQuantitesParProduit(List<CommandeDTO> commandes) {
 
   for (var commande in commandes) {
     for (var ligne in commande.lignes) {
-      final nomProduit = ligne.produit?.nom ?? 'Produit inconnu';
+      final nomProduit = ligne.produit.nom ?? 'Produit inconnu';
       quantitesParProduit[nomProduit] = (quantitesParProduit[nomProduit] ?? 0) + ligne.quantite;
     }
   }
@@ -1700,7 +1635,7 @@ Map<int, int> _groupCommandesParMois(List<CommandeDTO> commandes) {
     }
     
     for (var cmd in commandes) {
-      final date = DateTime.parse(cmd.dateCreation!);
+      final date = DateTime.parse(cmd.dateCreation);
       if (date.year == now.year) {
         result[date.month - 1] = (result[date.month - 1] ?? 0) + 1;
       }
