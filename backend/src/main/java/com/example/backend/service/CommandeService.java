@@ -6,10 +6,14 @@ import com.example.backend.repository.*;
 import jakarta.transaction.Transactional;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -34,9 +38,48 @@ public class CommandeService {
     @Autowired
     private ProduitRepository produitRepository;
     @Autowired
-    private PromotionService promotionService;
+    private UtilisateurService utilisateurService;
+    private Utilisateur getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return utilisateurService.findByNomUtilisateur(auth.getName());
+    }
     public String genererContexteCommandes() {
-        List<Commande> commandes = commandeRepository.findAll();
+        Utilisateur utilisateur = getCurrentUser(); // Récupère l'utilisateur connecté
+
+        List<Commande> commandes;
+
+        switch (utilisateur.getRole()) {
+            case "SUPERVISEUR":
+                List<Utilisateur> tousLesUtilisateurs = utilisateurRepository.findAll();
+
+                List<Long> vendeurIds = tousLesUtilisateurs.stream()
+                        .filter(u -> (u instanceof VendeurDirect || u instanceof PreVendeur))
+                        .filter(u -> {
+                            if (u instanceof VendeurDirect vd) {
+                                return vd.getSuperviseur() != null && vd.getSuperviseur().getId().equals(utilisateur.getId());
+                            } else if (u instanceof PreVendeur pv) {
+                                return pv.getSuperviseur() != null && pv.getSuperviseur().getId().equals(utilisateur.getId());
+                            }
+                            return false;
+                        })
+                        .map(Utilisateur::getId)
+                        .collect(Collectors.toList());
+
+                commandes = commandeRepository.findByVendeurIdIn(vendeurIds);
+                break;
+
+            case "ADMIN":
+                commandes = commandeRepository.findAll();
+                break;
+
+            case "VENDEURDIRECT":
+            case "PREVENDEUR":
+                commandes = commandeRepository.findByVendeurId(utilisateur.getId());
+                break;
+
+            default:
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès non autorisé");
+        }
 
         if (commandes.isEmpty()) return "Aucune commande trouvée.";
 
@@ -49,10 +92,7 @@ public class CommandeService {
             String clientNom = cmd.getClient().getNom();
             String date = cmd.getDateCreation() != null ? cmd.getDateCreation().toString() : "Date inconnue";
             String montant = cmd.getMontantTotal() != null ? String.format("%.2f DH", cmd.getMontantTotal()) : "Montant inconnu";
-
-            // ✅ Récupération du statut
             String statut = cmd.getStatut() != null ? cmd.getStatut().name() : "Statut inconnu";
-            // Si c'est une String directement : cmd.getStatut()
 
             String produits = cmd.getLignes().stream()
                     .map(ligne -> {
@@ -66,7 +106,7 @@ public class CommandeService {
                     .append(" | Date : ").append(date)
                     .append(" | Produits : ").append(produits)
                     .append(" | Total : ").append(montant)
-                    .append(" | ✅ Statut : ").append(statut) // ✅ Ajout ici
+                    .append(" | ✅ Statut : ").append(statut)
                     .append("\n");
         }
 

@@ -3,21 +3,32 @@ package com.example.backend.service;
 import com.example.backend.entity.*;
 import com.example.backend.repository.ProduitRepository;
 import com.example.backend.repository.StockCamionRepository;
+import com.example.backend.repository.UtilisateurRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class StockCamionService {
-
+    @Autowired
+    private
+    UtilisateurService utilisateurService;
+    @Autowired
+    private UtilisateurRepository utilisateurRepository;
     private final StockCamionRepository stockCamionRepository;
     private final ProduitRepository produitRepository;
-    private final UtilisateurService utilisateurService; // permet d’identifier l’utilisateur courant et son rôle
 
     public StockCamionService(StockCamionRepository stockCamionRepository,
                               ProduitRepository produitRepository,
@@ -175,11 +186,61 @@ public class StockCamionService {
         // Sauvegarder la modification
         stockCamionRepository.save(stock);
     }
+    private Utilisateur getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        return utilisateurRepository.findByNomUtilisateur(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + username));
+    }
     public String genererContexteStockCamions() {
-        List<StockCamion> stocks = stockCamionRepository.findAll();
+        Utilisateur utilisateur = getCurrentUser(); // récupère l'utilisateur connecté
+        List<StockCamion> stocks;
+
+        switch (utilisateur.getRole()) {
+            case "ADMIN":
+                stocks = voirTousLesStocks();
+                break;
+
+            case "SUPERVISEUR":
+                List<Utilisateur> vendeurs = utilisateurRepository.findAll().stream()
+                        .filter(u -> (u instanceof VendeurDirect || u instanceof PreVendeur))
+                        .filter(u -> {
+                            if (u instanceof VendeurDirect vd) {
+                                return vd.getSuperviseur() != null && vd.getSuperviseur().getId().equals(utilisateur.getId());
+                            } else if (u instanceof PreVendeur pv) {
+                                return pv.getSuperviseur() != null && pv.getSuperviseur().getId().equals(utilisateur.getId());
+                            }
+                            return false;
+                        })
+                        .toList();
+
+                List<Long> idsDesVendeurs = vendeurs.stream()
+                        .map(Utilisateur::getId)
+                        .toList();
+
+                stocks = voirTousLesStocks().stream()
+                        .filter(stock -> stock.getChauffeur() != null &&
+                                idsDesVendeurs.contains(stock.getChauffeur().getId()))
+                        .toList();
+                break;
+
+            case "VENDEURDIRECT":
+            case "PREVENDEUR":
+                try {
+                    StockCamion monStock = voirSonStock(); // Peut jeter une exception si non vendeur
+                    stocks = monStock != null ? List.of(monStock) : List.of();
+                } catch (Exception e) {
+                    stocks = List.of(); // Ne pas bloquer le chatbot, même si aucun stock trouvé
+                }
+                break;
+
+            default:
+                stocks = List.of(); // Pour éviter une exception et permettre au bot de continuer
+        }
 
         if (stocks.isEmpty()) {
-            return "Aucun stock camion trouvé.";
+            return "Aucun stock camion trouvé pour votre profil.";
         }
 
         StringBuilder contexte = new StringBuilder("État actuel des stocks camions :\n");
@@ -190,7 +251,6 @@ public class StockCamionService {
                     ? stock.getChauffeur().getNomUtilisateur()
                     : "Chauffeur inconnu";
 
-            // ✅ Nombre total de produits et détail par produit
             Map<Produit, Integer> niveaux = stock.getNiveauxStock();
             int totalProduits = niveaux.values().stream().mapToInt(Integer::intValue).sum();
 
@@ -198,8 +258,7 @@ public class StockCamionService {
                     ? "Aucun produit"
                     : niveaux.entrySet().stream()
                     .map(e -> e.getKey().getNom() + " x" + e.getValue())
-                    .reduce((p1, p2) -> p1 + ", " + p2)
-                    .orElse("");
+                    .collect(Collectors.joining(", "));
 
             contexte.append("- [Stock ID: ").append(stockId).append("] ")
                     .append("Chauffeur : ").append(chauffeurNom)
@@ -210,8 +269,8 @@ public class StockCamionService {
 
         return contexte.toString();
     }
-
     // ✅ Déduire du stock après vente (automatique pour VendeurDirect)
+
     public void deduireStock(Long produitId, int quantite) {
         Utilisateur user = utilisateurService.getUtilisateurActuel();
 

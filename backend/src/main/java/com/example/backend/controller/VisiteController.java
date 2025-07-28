@@ -12,11 +12,13 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -49,6 +51,20 @@ public class VisiteController {
         this.clientService = clientService;
         this.preVendeurService = preVendeurService;
     }
+    @PutMapping("/{id}/statut")
+    public ResponseEntity<?> modifierStatutVisite(
+            @PathVariable Long id,
+            @RequestParam StatutVisite statut) {
+
+        try {
+            Utilisateur utilisateurConnecte = getCurrentUser(); // 🔁 récupère manuellement le user
+            VisiteSimpleDTO dto = visiteService.modifierStatutVisite(id, statut, utilisateurConnecte);
+            return ResponseEntity.ok(dto);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        }
+    }
+
 
     // Endpoint pour planifier automatiquement les visites
     @PostMapping("/planification-auto")
@@ -70,17 +86,24 @@ public class VisiteController {
     public List<VisiteSimpleDTO> getVisitesForCurrentUser() {
         Utilisateur utilisateur = getCurrentUser(); // méthode partagée pour récupérer l'utilisateur connecté
 
-        List<Visite> visites;
+        List<Visite> visites = new ArrayList<>();
 
         // Si admin → retourne toutes les visites
         if (utilisateur instanceof Administrateur || "ADMIN".equals(utilisateur.getRole())) {
-            visites = visiteService.getToutesLesVisitesEntities(); // retourne les entités (non DTO)
+            visites = visiteService.getToutesLesVisitesEntities();
         }
-        // Si vendeur ou pré-vendeur → retourne uniquement les visites liées à ses clients
+        // Si superviseur → récupérer les visites de tous les vendeurs supervisés
+        else if ("SUPERVISEUR".equals(utilisateur.getRole())) {
+            List<Utilisateur> vendeurs = utilisateurService.getVendeursSupervises(utilisateur.getId());
+            for (Utilisateur vendeur : vendeurs) {
+                visites.addAll(visiteService.getVisitesParVendeur(vendeur.getId()));
+            }
+        }
+        // Si vendeur ou pré-vendeur → retourne uniquement ses visites
         else if ("VENDEURDIRECT".equals(utilisateur.getRole()) || "PREVENDEUR".equals(utilisateur.getRole())) {
             visites = visiteService.getVisitesParVendeur(utilisateur.getId());
         } else {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès réservé aux vendeurs et administrateurs");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès non autorisé");
         }
 
         // Mapping vers DTO

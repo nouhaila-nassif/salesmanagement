@@ -4,6 +4,26 @@ import '../config/constants.dart';
 import '../models/visite_request.dart';
 import '../utils/secure_storage.dart';
 class ApiService {
+
+Future<Visite> modifierStatutVisite({
+  required int visiteId,
+  required String nouveauStatut, // Exemple : "REALISEE", "ANNULEE", etc.
+}) async {
+  final url = Uri.parse('$baseUrl/visites/$visiteId/statut?statut=$nouveauStatut');
+
+  final response = await http.put(
+    url,
+    headers: await _headers(), // 🔁 headers centralisés (avec ou sans token)
+  );
+
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    return Visite.fromJson(data);
+  } else {
+    throw Exception('Erreur lors de la modification du statut : ${response.body}');
+  }
+}
+
  Future<List<Visite>> getPlanificationVisites() async {
   final response = await http.post(
     Uri.parse('$baseUrl/visites/planification-auto'),

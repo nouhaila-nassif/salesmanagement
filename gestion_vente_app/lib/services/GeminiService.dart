@@ -1,59 +1,84 @@
-import 'dart:io' show File;
+import 'dart:convert';
 import 'dart:typed_data';
-import 'package:dio/dio.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show File;
+
+import '../utils/secure_storage.dart';
 
 class GeminiService {
-  static Future<String> askGemini({
+  static const String baseUrl = "http://localhost:8080/api/ia";
+
+  static Future<Map<String, String>> askGemini({
     String? query,
     File? audioFile, // Mobile
     Uint8List? webAudioBytes, // Web
     String? webFileName, // Web
   }) async {
-    final dio = Dio();
+    final token = await SecureStorage.getToken();
 
     try {
-      Response response;
+      http.Response response;
 
       if ((audioFile == null && webAudioBytes == null)) {
-        // ✅ Cas uniquement texte → /ask-json
-        response = await dio.post(
-          "http://localhost:8080/api/ia/ask-json",
-          data: {"query": query},
-          options: Options(contentType: "application/json"),
+        // Cas texte simple → /ask-json
+        final url = Uri.parse('$baseUrl/ask-json');
+
+        response = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: json.encode({'query': query}),
         );
       } else {
-        // ✅ Cas avec fichier audio → /ask-multipart
-        final formData = FormData();
+        // Cas avec audio → /ask-multipart
+        final url = Uri.parse('$baseUrl/ask-multipart');
+
+        var request = http.MultipartRequest('POST', url);
+        request.headers['Authorization'] = 'Bearer $token';
 
         if (query != null && query.isNotEmpty) {
-          formData.fields.add(MapEntry("query", query));
+          request.fields['query'] = query;
         }
 
         if (!kIsWeb && audioFile != null) {
-          formData.files.add(MapEntry(
-            "audioFile",
-            await MultipartFile.fromFile(audioFile.path),
+          request.files.add(await http.MultipartFile.fromPath(
+            'audioFile',
+            audioFile.path,
           ));
         }
 
         if (kIsWeb && webAudioBytes != null && webFileName != null) {
-          formData.files.add(MapEntry(
-            "audioFile",
-            MultipartFile.fromBytes(webAudioBytes, filename: webFileName),
+          request.files.add(http.MultipartFile.fromBytes(
+            'audioFile',
+            webAudioBytes,
+            filename: webFileName,
           ));
         }
 
-        response = await dio.post(
-          "http://localhost:8080/api/ia/ask-multipart",
-          data: formData,
-          options: Options(contentType: "multipart/form-data"),
-        );
+        final streamedResponse = await request.send();
+        response = await http.Response.fromStream(streamedResponse);
       }
 
-      return response.data["result"] ?? "Pas de réponse IA.";
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        return {
+          "result": data["result"]?.toString() ?? "Pas de réponse IA.",
+          "transcription": data["transcription"]?.toString() ?? "",
+        };
+      } else {
+        return {
+          "result": "Erreur serveur : ${response.statusCode}",
+          "transcription": "",
+        };
+      }
     } catch (e) {
-      return "Erreur lors de l'appel à l'IA : $e";
+      return {
+        "result": "Erreur lors de l'appel à l'IA : $e",
+        "transcription": "",
+      };
     }
   }
 }

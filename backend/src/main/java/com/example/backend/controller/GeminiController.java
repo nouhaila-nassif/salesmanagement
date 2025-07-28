@@ -121,6 +121,7 @@ public class GeminiController {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
+
     @PostMapping(
             value = "/ask-multipart",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -131,26 +132,37 @@ public class GeminiController {
             @RequestPart(value = "audioFile", required = false) MultipartFile audioFile) {
 
         try {
+            String transcription = null;
+
             if ((query == null || query.isBlank()) && (audioFile == null || audioFile.isEmpty())) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Missing 'query' or 'audioFile'"));
             }
 
+            // 🎤 Étape 1 : Transcrire l'audio s'il existe
             if (audioFile != null && !audioFile.isEmpty()) {
                 File tempFile = File.createTempFile("upload_", ".wav");
                 audioFile.transferTo(tempFile);
 
-                query = audioTranscriptionController.executerWhisper(
+                transcription = audioTranscriptionController.executerWhisper(
                         tempFile.getAbsolutePath(),
                         System.getProperty("java.io.tmpdir")
                 );
+
                 tempFile.delete();
 
-                if (query == null || query.isBlank()) {
+                if (transcription == null || transcription.isBlank()) {
                     return ResponseEntity.badRequest().body(Map.of("error", "Transcription vide"));
                 }
-                System.out.println("[API /ask-multipart] Transcription : " + query);
+
+                System.out.println("[API /ask-multipart] ✅ Transcription : " + transcription);
+
+                // ⚠️ Utiliser la transcription comme query si vide
+                if (query == null || query.isBlank()) {
+                    query = transcription;
+                }
             }
 
+            // 🔁 Traitement IA avec Gemini
             query = geminiService.remplacerDatesRelatives(query);
 
             String username = getCurrentUsername();
@@ -160,17 +172,23 @@ public class GeminiController {
             List<String> historique = historiqueParUtilisateur.get(username);
             historique.add("User: " + query);
 
+            String reponseIA;
             if (query.toLowerCase().contains("dislogroup") || query.toLowerCase().contains("entreprise")) {
-                String reponseDislogroup = dislogroupInfoService.repondreQuestionSurDislogroup(query);
-                historique.add("Gemini: " + reponseDislogroup);
-                return ResponseEntity.ok(Map.of("result", reponseDislogroup));
+                reponseIA = dislogroupInfoService.repondreQuestionSurDislogroup(query);
+            } else {
+                String contexteComplet = prepareContext(historique);
+                reponseIA = callGeminiWithRetry(query, contexteComplet);
             }
 
-            String contexteComplet = prepareContext(historique);
-            String reponseIA = callGeminiWithRetry(query, contexteComplet);
             historique.add("Gemini: " + reponseIA);
 
-            return ResponseEntity.ok(Map.of("result", reponseIA));
+            // 📦 Retourner transcription + réponse
+            return ResponseEntity.ok(Map.of(
+                    "transcription", transcription,
+                    "result", reponseIA
+
+
+            ));
 
         } catch (Exception e) {
             e.printStackTrace();

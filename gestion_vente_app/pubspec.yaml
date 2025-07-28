@@ -60,7 +60,8 @@ dependencies:
   mime: ^2.0.0
   permission_handler: ^11.3.1
   html: ^0.15.6
-
+  record_web: 1.1.9 
+  flutter_webrtc: ^1.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

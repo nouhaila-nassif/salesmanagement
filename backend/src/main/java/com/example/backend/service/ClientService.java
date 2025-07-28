@@ -7,7 +7,11 @@ import com.example.backend.repository.RouteRepository;
 import com.example.backend.repository.VisiteRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -17,7 +21,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ClientService {
-
+    @Autowired
+    private UtilisateurService utilisateurService;
     private final ClientRepository clientRepository;
     private final CommandeRepository commandeRepository;
     private final VisiteRepository visiteRepository;
@@ -52,22 +57,41 @@ public class ClientService {
 
         return clientRepository.save(client);
     }
+    private Utilisateur getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        Utilisateur utilisateur = utilisateurService.findByNomUtilisateur(username);
+        if (utilisateur == null) {
+            throw new RuntimeException("Utilisateur non trouvé : " + username);
+        }
+        return utilisateur;
+    }
 
     public List<Client> getClientsByVendeur(Long vendeurId) {
         return clientRepository.findClientsByVendeurId(vendeurId);
     }
 
     public String genererContexteClients() {
-        List<Client> clients = getAllClientsWithDetails();
+        Utilisateur utilisateur = getCurrentUser(); // méthode pour récupérer l'utilisateur connecté
+
+        List<Client> clients;
+
+        // Récupération des clients en fonction du rôle
+        if (utilisateur instanceof Administrateur || "ADMIN".equals(utilisateur.getRole())) {
+            clients = getAllClientsWithDetails(); // avec fetch relations
+        } else if ("VENDEURDIRECT".equals(utilisateur.getRole()) || "PREVENDEUR".equals(utilisateur.getRole())) {
+            clients = getClientsByVendeur(utilisateur.getId());
+        } else {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès réservé aux vendeurs et administrateurs");
+        }
 
         if (clients.isEmpty()) {
-            return "Aucun client disponible actuellement.";
+            return "Aucun client disponible pour cet utilisateur.";
         }
 
         StringBuilder contexte = new StringBuilder("Voici la liste des clients et leurs informations :\n");
 
         for (Client client : clients) {
-            // ✅ Ajout de l'ID du client
             contexte.append("- [ID: ").append(client.getId()).append("] ")
                     .append("Client : ").append(client.getNom());
 
@@ -87,7 +111,7 @@ public class ClientService {
                 contexte.append(", Dernière visite : ").append(client.getDerniereVisite().toString());
             }
 
-            // ✅ Routes associées
+            // Routes associées
             if (client.getRoutes() != null && !client.getRoutes().isEmpty()) {
                 String routes = client.getRoutes().stream()
                         .map(Route::getNom)
@@ -95,7 +119,7 @@ public class ClientService {
                 contexte.append(", Routes : ").append(routes);
             }
 
-            // ✅ Commandes récentes (3 dernières)
+            // Commandes récentes
             List<Commande> commandes = commandeRepository.findTop3ByClientIdOrderByDateCreationDesc(client.getId());
             if (!commandes.isEmpty()) {
                 contexte.append(", Commandes récentes : ");
@@ -109,7 +133,7 @@ public class ClientService {
                 contexte.append(commandesStr);
             }
 
-            // ✅ Visites récentes (2 dernières)
+            // Visites récentes
             List<Visite> visites = visiteRepository.findTop2ByClientIdOrderByDatePlanifieeDesc(client.getId());
             if (!visites.isEmpty()) {
                 contexte.append(", Visites récentes : ");

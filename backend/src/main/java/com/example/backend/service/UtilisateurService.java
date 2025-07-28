@@ -21,6 +21,9 @@ public class UtilisateurService {
         return utilisateurRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Utilisateur non trouvé avec l'id : " + id));
     }
+    public List<Utilisateur> getVendeursSupervises(Long superviseurId) {
+        return utilisateurRepository.findBySuperviseurId(superviseurId);
+    }
     public Utilisateur getVendeurParDefaut() {
         // Récupérer tous les utilisateurs, filtrer ceux qui sont des vendeurs
         List<Utilisateur> utilisateurs = utilisateurRepository.findAll();

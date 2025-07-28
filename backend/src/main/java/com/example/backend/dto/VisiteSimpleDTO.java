@@ -1,10 +1,12 @@
 package com.example.backend.dto;
 
+import com.example.backend.entity.StatutVisite;
 import com.example.backend.entity.TypeClient;
 
 import java.time.LocalDate;
 
 public class VisiteSimpleDTO {
+    private Long id;
     private LocalDate datePlanifiee;
     private String nomClient;
     private String adresse;
@@ -12,9 +14,15 @@ public class VisiteSimpleDTO {
     private String email;
     private String nomVendeur;
     private TypeClient typeClient;
+    private StatutVisite statut;  // <-- ajouté
 
-    public VisiteSimpleDTO(LocalDate datePlanifiee, String nomClient, String nomVendeur, TypeClient typeClient,
-                           String adresse, String numeroTelephone, String email) {
+    public VisiteSimpleDTO() {
+        // constructeur par défaut (obligatoire pour la désérialisation JSON)
+    }
+
+    public VisiteSimpleDTO(Long id, LocalDate datePlanifiee, String nomClient, String nomVendeur, TypeClient typeClient,
+                           String adresse, String numeroTelephone, String email, StatutVisite statut) {
+        this.id = id;
         this.datePlanifiee = datePlanifiee;
         this.nomClient = nomClient;
         this.nomVendeur = nomVendeur;
@@ -22,6 +30,25 @@ public class VisiteSimpleDTO {
         this.adresse = adresse;
         this.numeroTelephone = numeroTelephone;
         this.email = email;
+        this.statut = statut;   // initialisation
+
+    }
+
+    public StatutVisite getStatut() {
+        return statut;
+    }
+
+    public void setStatut(StatutVisite statut) {
+        this.statut = statut;
+    }
+
+    // Getters & Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public LocalDate getDatePlanifiee() {

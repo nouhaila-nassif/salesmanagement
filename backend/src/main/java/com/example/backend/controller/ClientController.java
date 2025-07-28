@@ -16,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -50,23 +51,29 @@ public class ClientController {
     public List<ClientDTO> getClientsForCurrentVendeur() {
         Utilisateur utilisateur = getCurrentUser(); // méthode pour récupérer l'utilisateur connecté
 
-        List<Client> clients;
+        List<Client> clients = new ArrayList<>();
 
         // Si admin, retourner tous les clients
         if (utilisateur instanceof Administrateur || "ADMIN".equals(utilisateur.getRole())) {
             clients = clientService.getAllClients();
+        }
+        // Si superviseur, retourner les clients de tous les vendeurs qu’il supervise
+        else if ("SUPERVISEUR".equals(utilisateur.getRole())) {
+            List<Utilisateur> vendeurs = utilisateurService.getVendeursSupervises(utilisateur.getId()); // À implémenter
+            for (Utilisateur vendeur : vendeurs) {
+                clients.addAll(clientService.getClientsByVendeur(vendeur.getId()));
+            }
         }
         // Si vendeur ou pré-vendeur, retourner seulement ses clients
         else if ("VENDEURDIRECT".equals(utilisateur.getRole()) || "PREVENDEUR".equals(utilisateur.getRole())) {
             clients = clientService.getClientsByVendeur(utilisateur.getId());
         }
         else {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès réservé aux vendeurs et pré-vendeurs");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès non autorisé");
         }
 
-        // Convertir en DTO avec routes simplifiées
         return clients.stream()
-                .map(ClientDTO::new) // constructeur de ClientDTO qui fait le mapping complet
+                .map(ClientDTO::new)
                 .collect(Collectors.toList());
     }
 
